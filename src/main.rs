@@ -55,17 +55,7 @@ fn main() {
         }
     };
 
-    let units_per_em: f64 = font
-        .font_info
-        .units_per_em
-        .map(|v| v.get())
-        .unwrap_or(1000.0);
-    let angle: f64 = font
-        .font_info
-        .italic_angle
-        .map(|v| -v.get())
-        .unwrap_or_default();
-    let xheight: f64 = font.font_info.x_height.map(|v| v.get()).unwrap_or_default();
+    let (units_per_em, angle, xheight) = get_global_metrics(&font);
 
     let default_layer = font.default_layer();
     // let mut background_glyphs: Vec<Glyph> = Vec::new();
@@ -139,6 +129,22 @@ fn main() {
     font.meta.creator = Some("org.linebender.norad".into());
     font.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))
         .unwrap();
+}
+
+fn get_global_metrics(font: &norad::Font) -> (f64, f64, f64) {
+    let units_per_em: f64 = font
+        .font_info
+        .units_per_em
+        .map(|v| v.get())
+        .unwrap_or(1000.0);
+    let angle: f64 = font
+        .font_info
+        .italic_angle
+        .map(|v| -v.get())
+        .unwrap_or_default();
+    let xheight: f64 = font.font_info.x_height.map(|v| v.get()).unwrap_or_default();
+
+    (units_per_em, angle, xheight)
 }
 
 /// Shift anchors, contours and components of a glyph horizontally by `delta`.
@@ -637,23 +643,11 @@ mod tests {
 
     #[test]
     fn space_mutatorsans() {
-        let ufo = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
-        let default_layer = ufo.default_layer();
+        let font = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
+        let default_layer = font.default_layer();
 
-        let units_per_em: f64 = ufo
-            .font_info
-            .units_per_em
-            .map(|v| v.get())
-            .unwrap_or(1000.0);
-        let angle: f64 = ufo
-            .font_info
-            .italic_angle
-            .map(|v| -v.get())
-            .unwrap_or_default();
-        let xheight: f64 = ufo.font_info.x_height.map(|v| v.get()).unwrap_or_default();
+        let (units_per_em, angle, xheight) = get_global_metrics(&font);
         let sample_frequency: usize = 5;
-
-        // let mut background_glyphs = Vec::new();
 
         // TODO: make own config instead of polluting global one
         for (name, left, right) in &[
@@ -706,17 +700,17 @@ mod tests {
             ("semicolon", Some(88.0), Some(86.0)),
             ("space", None, None),
         ] {
-            let glyph = ufo.get_glyph(*name).unwrap();
+            let glyph = font.get_glyph(*name).unwrap();
 
             let (glyph_ref_name, factor) = config::config_for_glyph(&glyph.name);
-            let glyph_ref = ufo.get_glyph(glyph_ref_name).unwrap();
+            let glyph_ref = font.get_glyph(glyph_ref_name).unwrap();
 
             let paths = path_for_glyph(glyph, default_layer).unwrap();
             let bounds = paths.bounding_box();
             let paths_reference = path_for_glyph(glyph_ref, default_layer).unwrap();
             let bounds_reference = paths_reference.bounding_box();
 
-            let parameters = SpacingParameters::try_new_determine_or_default(&ufo, glyph).unwrap();
+            let parameters = SpacingParameters::try_new_determine_or_default(&font, glyph).unwrap();
             let overshoot = xheight * parameters.overshoot / 100.0;
             let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
             let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
