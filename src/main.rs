@@ -1,4 +1,5 @@
 use log::error;
+use parameters::SpacingParameters;
 
 use std::collections::HashMap;
 
@@ -7,6 +8,7 @@ use norad::{Component, Contour, ContourPoint, Glyph, Layer, PointType};
 use structopt::StructOpt;
 
 pub mod config;
+pub mod parameters;
 
 // TODO:
 // - Write `set_(left|right)_margin` plus `move`
@@ -19,7 +21,7 @@ pub mod config;
     name = "letterspacer",
     about = "A configurable letter spacer for UFO font sources."
 )]
-struct Opt {
+pub(crate) struct Opt {
     /// Set area.
     #[structopt(long, default_value = "400.0")]
     area: f64,
@@ -45,7 +47,7 @@ fn main() {
     env_logger::init();
     let args = Opt::from_args();
 
-    let mut ufo = match norad::Font::load(&args.input) {
+    let mut font = match norad::Font::load(&args.input) {
         Ok(v) => v,
         Err(e) => {
             error!("Loading UFO failed: {}", e);
@@ -53,27 +55,19 @@ fn main() {
         }
     };
 
-    // TODO: Read from glyph lib, fall back to UFO lib, fall back to args
-    let param_area = args.area;
-    let param_depth = args.depth;
-    let param_overshoot = args.overshoot;
-    let param_sample_frequency = args.sample_frequency;
-
-    let units_per_em: f64 = ufo
+    let units_per_em: f64 = font
         .font_info
         .units_per_em
         .map(|v| v.get())
         .unwrap_or(1000.0);
-    let angle: f64 = ufo
+    let angle: f64 = font
         .font_info
         .italic_angle
         .map(|v| -v.get())
         .unwrap_or_default();
-    let xheight: f64 = ufo.font_info.x_height.map(|v| v.get()).unwrap_or_default();
+    let xheight: f64 = font.font_info.x_height.map(|v| v.get()).unwrap_or_default();
 
-    let overshoot = xheight * param_overshoot / 100.0;
-
-    let default_layer = ufo.default_layer();
+    let default_layer = font.default_layer();
     // let mut background_glyphs: Vec<Glyph> = Vec::new();
 
     let mut new_side_bearings = HashMap::new();
@@ -96,6 +90,10 @@ fn main() {
                 continue;
             }
         };
+
+        let parameters = SpacingParameters::try_new_determine(&args, &font, glyph).unwrap();
+        let overshoot = xheight * parameters.overshoot / 100.0;
+
         let bounds_reference = paths_reference.bounding_box();
         let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
         let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
@@ -106,12 +104,9 @@ fn main() {
             (bounds_reference_lower, bounds_reference_upper),
             angle,
             xheight,
-            param_sample_frequency,
-            param_depth,
-            // glyph.name.clone(),
-            // &mut background_glyphs,
+            &parameters,
+            args.sample_frequency,
             factor,
-            param_area,
             units_per_em,
         );
 
@@ -125,7 +120,7 @@ fn main() {
         }
     }
 
-    let default_layer = ufo.default_layer_mut();
+    let default_layer = font.default_layer_mut();
     for (name, (left, right)) in new_side_bearings {
         let glyph = default_layer.get_glyph_mut(&name).unwrap();
         move_glyph_x(glyph, left);
@@ -141,8 +136,8 @@ fn main() {
     //     background_layer.insert_glyph(glyph)
     // }
 
-    ufo.meta.creator = Some("org.linebender.norad".into());
-    ufo.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))
+    font.meta.creator = Some("org.linebender.norad".into());
+    font.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))
         .unwrap();
 }
 
@@ -167,12 +162,9 @@ fn calculate_spacing(
     (bounds_reference_lower, bounds_reference_upper): (f64, f64),
     angle: f64,
     xheight: f64,
-    param_sample_frequency: usize,
-    param_depth: f64,
-    // glyph_name: impl Into<GlyphName>,
-    // background_glyphs: &mut Vec<Glyph>,
+    parameters: &SpacingParameters,
+    sample_frequency: usize,
     factor: f64,
-    param_area: f64,
     units_per_em: f64,
 ) -> (Option<f64>, Option<f64>) {
     if paths.is_empty() {
@@ -186,8 +178,8 @@ fn calculate_spacing(
             (bounds_reference_lower, bounds_reference_upper),
             angle,
             xheight,
-            param_sample_frequency,
-            param_depth,
+            sample_frequency,
+            parameters.depth,
         );
 
     // let background_glyph = draw_glyph_outer_outline_into_glyph(glyph_name, (&left, &right));
@@ -201,7 +193,7 @@ fn calculate_spacing(
         + calculate_sidebearing_value(
             factor,
             (bounds_reference_lower, bounds_reference_upper),
-            param_area,
+            parameters.area,
             &left,
             units_per_em,
             xheight,
@@ -211,7 +203,7 @@ fn calculate_spacing(
         + calculate_sidebearing_value(
             factor,
             (bounds_reference_lower, bounds_reference_upper),
-            param_area,
+            parameters.area,
             &right,
             units_per_em,
             xheight,
@@ -224,20 +216,20 @@ fn calculate_spacing(
 fn calculate_sidebearing_value(
     factor: f64,
     (bounds_reference_lower, bounds_reference_upper): (f64, f64),
-    param_area: f64,
+    area: f64,
     polygon: &[Point],
     units_per_em: f64,
     xheight: f64,
 ) -> f64 {
     let amplitude_y = bounds_reference_upper - bounds_reference_lower;
-    let area_upm = param_area * (units_per_em / 1000.0).powi(2);
+    let area_upm = area * (units_per_em / 1000.0).powi(2);
     let white_area = area_upm * factor * 100.0;
     let prop_area = (amplitude_y * white_area) / xheight;
-    let valor = prop_area - area(polygon);
+    let valor = prop_area - calculate_area(polygon);
     valor / amplitude_y
 }
 
-fn area(points: &[Point]) -> f64 {
+fn calculate_area(points: &[Point]) -> f64 {
     // https://mathopenref.com/coordpolygonarea2.html
     points
         .iter()
@@ -255,8 +247,8 @@ fn spacing_polygons(
     (bounds_reference_lower, bounds_reference_upper): (f64, f64),
     angle: f64,
     xheight: f64,
-    scan_frequency: usize,
-    depth_cut: f64,
+    sample_frequency: usize,
+    depth: f64,
 ) -> (Vec<Point>, Point, Point, Vec<Point>, Point, Point) {
     // For deskewing angled glyphs. Makes subsequent processing easier.
     let skew_offset = xheight / 2.0;
@@ -279,7 +271,7 @@ fn spacing_polygons(
     let mut extreme_right_full: Option<Point> = None;
     let mut extreme_right: Option<Point> = None;
     for y in (bounds_sampling_lower..=bounds_sampling_upper)
-        .step_by(scan_frequency)
+        .step_by(sample_frequency)
         .map(|v| v as f64)
     {
         let line = Line::new((left_bounds, y), (right_bounds, y));
@@ -327,14 +319,14 @@ fn spacing_polygons(
     let extreme_right = extreme_right.unwrap();
 
     // Second pass: Cap the margin samples to a maximum depth from the outermost point in to get our depth cut-in.
-    let depth = xheight * depth_cut / 100.0;
+    let depth = xheight * depth / 100.0;
     let max_depth = extreme_left.x + depth;
     let min_depth = extreme_right.x - depth;
     left.iter_mut().for_each(|s| s.x = s.x.min(max_depth));
     right.iter_mut().for_each(|s| s.x = s.x.max(min_depth));
 
     // Third pass: Close open counterforms at 45 degrees.
-    let dx_max = scan_frequency as f64;
+    let dx_max = sample_frequency as f64;
 
     for i in 0..left.len() - 1 {
         if left[i + 1].x - left[i].x > dx_max {
@@ -659,11 +651,7 @@ mod tests {
             .map(|v| -v.get())
             .unwrap_or_default();
         let xheight: f64 = ufo.font_info.x_height.map(|v| v.get()).unwrap_or_default();
-        let param_area: f64 = 400.0;
-        let param_depth: f64 = 15.0;
-        let param_overshoot: f64 = 0.0;
-        let overshoot = xheight * param_overshoot / 100.0;
-        let param_sample_frequency: usize = 5;
+        let sample_frequency: usize = 5;
 
         // let mut background_glyphs = Vec::new();
 
@@ -727,6 +715,9 @@ mod tests {
             let bounds = paths.bounding_box();
             let paths_reference = path_for_glyph(glyph_ref, default_layer).unwrap();
             let bounds_reference = paths_reference.bounding_box();
+
+            let parameters = SpacingParameters::try_new_determine_or_default(&ufo, glyph).unwrap();
+            let overshoot = xheight * parameters.overshoot / 100.0;
             let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
             let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
 
@@ -736,12 +727,9 @@ mod tests {
                 (bounds_reference_lower, bounds_reference_upper),
                 angle,
                 xheight,
-                param_sample_frequency,
-                param_depth,
-                // name.clone(),
-                // &mut background_glyphs,
+                &parameters,
+                sample_frequency,
                 factor,
-                param_area,
                 units_per_em,
             );
 
