@@ -36,116 +36,114 @@ struct Opt {
     #[structopt(long, default_value = "5")]
     sample_frequency: usize,
 
-    /// The paths to the UFOs to space.
+    /// The path to the UFOs to space.
     #[structopt(parse(from_os_str))]
-    paths: Vec<std::path::PathBuf>,
+    input: std::path::PathBuf,
 }
 
 fn main() {
     env_logger::init();
     let args = Opt::from_args();
 
-    for path in &args.paths {
-        let mut ufo = match norad::Font::load(path) {
-            Ok(v) => v,
+    let mut ufo = match norad::Font::load(&args.input) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Loading UFO failed: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // TODO: Read from glyph lib, fall back to UFO lib, fall back to args
+    let param_area = args.area;
+    let param_depth = args.depth;
+    let param_overshoot = args.overshoot;
+    let param_sample_frequency = args.sample_frequency;
+
+    let units_per_em: f64 = ufo
+        .font_info
+        .units_per_em
+        .map(|v| v.get())
+        .unwrap_or(1000.0);
+    let angle: f64 = ufo
+        .font_info
+        .italic_angle
+        .map(|v| -v.get())
+        .unwrap_or_default();
+    let xheight: f64 = ufo.font_info.x_height.map(|v| v.get()).unwrap_or_default();
+
+    let overshoot = xheight * param_overshoot / 100.0;
+
+    let default_layer = ufo.default_layer();
+    // let mut background_glyphs: Vec<Glyph> = Vec::new();
+
+    let mut new_side_bearings = HashMap::new();
+    for glyph in default_layer.iter() {
+        let (glyph_reference, factor) = config::config_for_glyph(&glyph.name);
+        let glyph_reference = default_layer.get_glyph(glyph_reference).unwrap();
+
+        let paths = match path_for_glyph(&glyph, &default_layer) {
+            Ok(path) => path,
             Err(e) => {
-                error!("Loading UFO failed: {}", e);
-                std::process::exit(1);
+                error!("Error while drawing {}: {:?}", glyph.name, e);
+                continue;
             }
         };
-
-        // TODO: Read from glyph lib, fall back to UFO lib, fall back to args
-        let param_area = args.area;
-        let param_depth = args.depth;
-        let param_overshoot = args.overshoot;
-        let param_sample_frequency = args.sample_frequency;
-
-        let units_per_em: f64 = ufo
-            .font_info
-            .units_per_em
-            .map(|v| v.get())
-            .unwrap_or(1000.0);
-        let angle: f64 = ufo
-            .font_info
-            .italic_angle
-            .map(|v| -v.get())
-            .unwrap_or_default();
-        let xheight: f64 = ufo.font_info.x_height.map(|v| v.get()).unwrap_or_default();
-
-        let overshoot = xheight * param_overshoot / 100.0;
-
-        let default_layer = ufo.default_layer();
-        // let mut background_glyphs: Vec<Glyph> = Vec::new();
-
-        let mut new_side_bearings = HashMap::new();
-        for glyph in default_layer.iter() {
-            let (glyph_reference, factor) = config::config_for_glyph(&glyph.name);
-            let glyph_reference = default_layer.get_glyph(glyph_reference).unwrap();
-
-            let paths = match path_for_glyph(&glyph, &default_layer) {
-                Ok(path) => path,
-                Err(e) => {
-                    error!("Error while drawing {}: {:?}", glyph.name, e);
-                    continue;
-                }
-            };
-            let bounds = paths.bounding_box();
-            let paths_reference = match path_for_glyph(&glyph_reference, default_layer) {
-                Ok(path) => path,
-                Err(e) => {
-                    error!("Error while drawing {}: {:?}", glyph_reference.name, e);
-                    continue;
-                }
-            };
-            let bounds_reference = paths_reference.bounding_box();
-            let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
-            let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
-
-            let (new_left, new_right) = calculate_spacing(
-                paths,
-                bounds,
-                (bounds_reference_lower, bounds_reference_upper),
-                angle,
-                xheight,
-                param_sample_frequency,
-                param_depth,
-                // glyph.name.clone(),
-                // &mut background_glyphs,
-                factor,
-                param_area,
-                units_per_em,
-            );
-
-            // Stash new metrics away. We have to do a second iteration so we can get a
-            // mut ref to glyphs to modify them. Doing it in this loop is complicated by
-            // misc. functions needing a normal ref to default_layer while we hold a mut ref...
-            if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
-                let delta_left = new_left - bounds.min_x();
-                let delta_right = bounds.max_x() + delta_left + new_right;
-                new_side_bearings.insert(glyph.name.clone(), (delta_left, delta_right));
+        let bounds = paths.bounding_box();
+        let paths_reference = match path_for_glyph(&glyph_reference, default_layer) {
+            Ok(path) => path,
+            Err(e) => {
+                error!("Error while drawing {}: {:?}", glyph_reference.name, e);
+                continue;
             }
+        };
+        let bounds_reference = paths_reference.bounding_box();
+        let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
+        let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
+
+        let (new_left, new_right) = calculate_spacing(
+            paths,
+            bounds,
+            (bounds_reference_lower, bounds_reference_upper),
+            angle,
+            xheight,
+            param_sample_frequency,
+            param_depth,
+            // glyph.name.clone(),
+            // &mut background_glyphs,
+            factor,
+            param_area,
+            units_per_em,
+        );
+
+        // Stash new metrics away. We have to do a second iteration so we can get a
+        // mut ref to glyphs to modify them. Doing it in this loop is complicated by
+        // misc. functions needing a normal ref to default_layer while we hold a mut ref...
+        if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
+            let delta_left = new_left - bounds.min_x();
+            let delta_right = bounds.max_x() + delta_left + new_right;
+            new_side_bearings.insert(glyph.name.clone(), (delta_left, delta_right));
         }
-
-        let default_layer = ufo.default_layer_mut();
-        for (name, (left, right)) in new_side_bearings {
-            let glyph = default_layer.get_glyph_mut(&name).unwrap();
-            move_glyph_x(glyph, left);
-            glyph.width = right;
-            // TODO: go though all composites using `glyph` and counter-move them to 
-            // keep them in place. Need some sort of topological sorter to move 
-            // component glyphs in the right order, once.
-        }
-
-        // Write out background layer.
-        // let mut background_layer = ufo.layers.get_or_create("public.background");
-        // for glyph in background_glyphs {
-        //     background_layer.insert_glyph(glyph)
-        // }
-
-        ufo.meta.creator = Some("org.linebender.norad".into());
-        ufo.save(std::path::PathBuf::from("/tmp").join(path.file_name().unwrap()))
-            .unwrap();
     }
+
+    let default_layer = ufo.default_layer_mut();
+    for (name, (left, right)) in new_side_bearings {
+        let glyph = default_layer.get_glyph_mut(&name).unwrap();
+        move_glyph_x(glyph, left);
+        glyph.width = right;
+        // TODO: go though all composites using `glyph` and counter-move them to
+        // keep them in place. Need some sort of topological sorter to move
+        // component glyphs in the right order, once.
+    }
+
+    // Write out background layer.
+    // let mut background_layer = ufo.layers.get_or_create("public.background");
+    // for glyph in background_glyphs {
+    //     background_layer.insert_glyph(glyph)
+    // }
+
+    ufo.meta.creator = Some("org.linebender.norad".into());
+    ufo.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))
+        .unwrap();
 }
 
 /// Shift anchors, contours and components of a glyph horizontally by `delta`.
