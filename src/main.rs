@@ -81,7 +81,7 @@ fn main() {
         let (glyph_reference, factor) = config::config_for_glyph(&glyph.name);
         let glyph_reference = default_layer.get_glyph(glyph_reference).unwrap();
 
-        let paths = match path_for_glyph(&glyph, &default_layer) {
+        let paths = match path_for_glyph(glyph, default_layer) {
             Ok(path) => path,
             Err(e) => {
                 error!("Error while drawing {}: {:?}", glyph.name, e);
@@ -89,7 +89,7 @@ fn main() {
             }
         };
         let bounds = paths.bounding_box();
-        let paths_reference = match path_for_glyph(&glyph_reference, default_layer) {
+        let paths_reference = match path_for_glyph(glyph_reference, default_layer) {
             Ok(path) => path,
             Err(e) => {
                 error!("Error while drawing {}: {:?}", glyph_reference.name, e);
@@ -225,7 +225,7 @@ fn calculate_sidebearing_value(
     factor: f64,
     (bounds_reference_lower, bounds_reference_upper): (f64, f64),
     param_area: f64,
-    polygon: &Vec<Point>,
+    polygon: &[Point],
     units_per_em: f64,
     xheight: f64,
 ) -> f64 {
@@ -233,11 +233,11 @@ fn calculate_sidebearing_value(
     let area_upm = param_area * (units_per_em / 1000.0).powi(2);
     let white_area = area_upm * factor * 100.0;
     let prop_area = (amplitude_y * white_area) / xheight;
-    let valor = prop_area - area(&polygon);
+    let valor = prop_area - area(polygon);
     valor / amplitude_y
 }
 
-fn area(points: &Vec<Point>) -> f64 {
+fn area(points: &[Point]) -> f64 {
     // https://mathopenref.com/coordpolygonarea2.html
     points
         .iter()
@@ -294,8 +294,8 @@ fn spacing_polygons(
             }
         } else {
             hits.sort_by_key(|k| k.x.round() as i32);
-            let mut first = hits.first().unwrap().clone(); // XXX: don't clone but own?
-            let mut last = hits.last().unwrap().clone();
+            let mut first = *hits.first().unwrap();
+            let mut last = *hits.last().unwrap();
             if angle != 0.0 {
                 first = Point::new(first.x - (y - skew_offset) * tan_angle, first.y);
                 last = Point::new(last.x - (y - skew_offset) * tan_angle, last.y);
@@ -305,19 +305,19 @@ fn spacing_polygons(
                 right.push(last);
 
                 extreme_left = extreme_left
-                    .map(|l| if l.x < first.x { l } else { first.clone() })
-                    .or(Some(first.clone()));
+                    .map(|l| if l.x < first.x { l } else { first })
+                    .or(Some(first));
                 extreme_right = extreme_right
-                    .map(|r| if r.x > last.x { r } else { last.clone() })
-                    .or(Some(last.clone()));
+                    .map(|r| if r.x > last.x { r } else { last })
+                    .or(Some(last));
             }
 
             extreme_left_full = extreme_left_full
-                .map(|l| if l.x < first.x { l } else { first.clone() })
-                .or(Some(first.clone()));
+                .map(|l| if l.x < first.x { l } else { first })
+                .or(Some(first));
             extreme_right_full = extreme_right_full
-                .map(|r| if r.x > last.x { r } else { last.clone() })
-                .or(Some(last.clone()));
+                .map(|r| if r.x > last.x { r } else { last })
+                .or(Some(last));
         }
     }
 
@@ -723,9 +723,9 @@ mod tests {
             let (glyph_ref_name, factor) = config::config_for_glyph(&glyph.name);
             let glyph_ref = ufo.get_glyph(glyph_ref_name).unwrap();
 
-            let paths = path_for_glyph(&glyph, &default_layer).unwrap();
+            let paths = path_for_glyph(glyph, default_layer).unwrap();
             let bounds = paths.bounding_box();
-            let paths_reference = path_for_glyph(&glyph_ref, &default_layer).unwrap();
+            let paths_reference = path_for_glyph(glyph_ref, default_layer).unwrap();
             let bounds_reference = paths_reference.bounding_box();
             let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
             let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
@@ -755,8 +755,7 @@ mod tests {
                     factor
                 ),
                 (None, None) => (),
-                _ => assert!(
-                    false,
+                _ => panic!(
                     "Glyph {}, left side: expected {:?}, got {:?} (factor {})",
                     *name, left, new_left, factor
                 ),
@@ -771,8 +770,7 @@ mod tests {
                     factor
                 ),
                 (None, None) => (),
-                _ => assert!(
-                    false,
+                _ => panic!(
                     "Glyph {}, right side: expected {:?}, got {:?} (factor {})",
                     *name, right, new_right, factor
                 ),
