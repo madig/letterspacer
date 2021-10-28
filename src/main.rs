@@ -457,6 +457,7 @@ mod tests {
         let (units_per_em, angle, xheight) = get_global_metrics(&font);
 
         // TODO: make own config instead of polluting global one
+        // TODO: Refactor to call just a function and compare sidebearings output
         for (name, left, right) in &[
             ("A", Some(23.0), Some(23.0)),
             ("Aacute", Some(23.0), Some(23.0)),
