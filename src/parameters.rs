@@ -1,7 +1,5 @@
 use norad::{Font, Glyph};
 
-use crate::Opt;
-
 const AREA_KEY: &str = "com.ht.spacer.area";
 const DEPTH_KEY: &str = "com.ht.spacer.depth";
 const OVERSHOOT_KEY: &str = "com.ht.spacer.overshoot";
@@ -10,6 +8,7 @@ pub struct SpacingParameters {
     pub area: f64,
     pub depth: f64,
     pub overshoot: f64,
+    pub sample_frequency: usize,
 }
 
 #[derive(Debug)]
@@ -18,28 +17,28 @@ pub enum SpacingParametersError {
     ExpectedRealNumberFont(String),
 }
 
-impl SpacingParameters {
-    pub(crate) fn try_new_determine(
-        cli: &Opt,
-        font: &Font,
-        glyph: &Glyph,
-    ) -> Result<Self, SpacingParametersError> {
-        Ok(Self {
-            area: Self::cascading_lookup(AREA_KEY, cli.area, glyph, font)?,
-            depth: Self::cascading_lookup(DEPTH_KEY, cli.depth, glyph, font)?,
-            overshoot: Self::cascading_lookup(OVERSHOOT_KEY, cli.overshoot, glyph, font)?,
-        })
+impl Default for SpacingParameters {
+    fn default() -> Self {
+        Self {
+            area: 400.0,
+            depth: 15.0,
+            overshoot: 0.0,
+            sample_frequency: 5,
+        }
     }
+}
 
-    #[cfg(test)]
-    pub(crate) fn try_new_determine_or_default(
-        font: &Font,
+impl SpacingParameters {
+    pub(crate) fn try_new_with_fallback(
         glyph: &Glyph,
+        font: &Font,
+        fallback: &Self,
     ) -> Result<Self, SpacingParametersError> {
         Ok(Self {
-            area: Self::cascading_lookup(AREA_KEY, 400.0, glyph, font)?,
-            depth: Self::cascading_lookup(DEPTH_KEY, 15.0, glyph, font)?,
-            overshoot: Self::cascading_lookup(OVERSHOOT_KEY, 0.0, glyph, font)?,
+            area: Self::cascading_lookup(AREA_KEY, fallback.area, glyph, font)?,
+            depth: Self::cascading_lookup(DEPTH_KEY, fallback.depth, glyph, font)?,
+            overshoot: Self::cascading_lookup(OVERSHOOT_KEY, fallback.overshoot, glyph, font)?,
+            sample_frequency: fallback.sample_frequency,
         })
     }
 

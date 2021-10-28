@@ -56,11 +56,40 @@ fn main() {
         }
     };
 
-    let (units_per_em, angle, xheight) = get_global_metrics(&font);
+    let parameters = SpacingParameters {
+        area: args.area,
+        depth: args.depth,
+        overshoot: args.overshoot,
+        sample_frequency: args.sample_frequency,
+    };
+    space_font(&mut font, &parameters);
+
+    font.meta.creator = Some("org.linebender.norad".into());
+    font.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))
+        .unwrap();
+}
+
+fn space_font(font: &mut norad::Font, parameters: &SpacingParameters) {
+    let new_side_bearings = calculate_sidebearings(font, parameters);
+
+    let default_layer = font.default_layer_mut();
+    for (name, (left, right)) in new_side_bearings {
+        let glyph = default_layer.get_glyph_mut(&*name).unwrap();
+        move_glyph_x(glyph, left);
+        glyph.width = right;
+        // TODO: go though all composites using `glyph` and counter-move them to
+        // keep them in place. Need some sort of topological sorter to move
+        // component glyphs in the right order, once.
+    }
+}
+
+fn calculate_sidebearings(
+    font: &norad::Font,
+    parameters: &SpacingParameters,
+) -> HashMap<String, (f64, f64)> {
+    let (units_per_em, angle, xheight) = get_global_metrics(font);
 
     let default_layer = font.default_layer();
-    // let mut background_glyphs: Vec<Glyph> = Vec::new();
-
     let mut new_side_bearings = HashMap::new();
     for glyph in default_layer.iter() {
         let (glyph_reference, factor) = config::config_for_glyph(&glyph.name);
@@ -82,7 +111,7 @@ fn main() {
             }
         };
 
-        let parameters = SpacingParameters::try_new_determine(&args, &font, glyph).unwrap();
+        let parameters = SpacingParameters::try_new_with_fallback(glyph, font, parameters).unwrap();
         let overshoot = xheight * parameters.overshoot / 100.0;
 
         let bounds_reference = paths_reference.bounding_box();
@@ -96,7 +125,6 @@ fn main() {
             angle,
             xheight,
             &parameters,
-            args.sample_frequency,
             factor,
             units_per_em,
         );
@@ -107,29 +135,11 @@ fn main() {
         if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
             let delta_left = new_left - bounds.min_x();
             let delta_right = bounds.max_x() + delta_left + new_right;
-            new_side_bearings.insert(glyph.name.clone(), (delta_left, delta_right));
+            new_side_bearings.insert(glyph.name.to_string(), (delta_left, delta_right));
         }
     }
 
-    let default_layer = font.default_layer_mut();
-    for (name, (left, right)) in new_side_bearings {
-        let glyph = default_layer.get_glyph_mut(&name).unwrap();
-        move_glyph_x(glyph, left);
-        glyph.width = right;
-        // TODO: go though all composites using `glyph` and counter-move them to
-        // keep them in place. Need some sort of topological sorter to move
-        // component glyphs in the right order, once.
-    }
-
-    // Write out background layer.
-    // let mut background_layer = ufo.layers.get_or_create("public.background");
-    // for glyph in background_glyphs {
-    //     background_layer.insert_glyph(glyph)
-    // }
-
-    font.meta.creator = Some("org.linebender.norad".into());
-    font.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))
-        .unwrap();
+    new_side_bearings
 }
 
 fn get_global_metrics(font: &norad::Font) -> (f64, f64, f64) {
@@ -170,7 +180,6 @@ fn calculate_spacing(
     angle: f64,
     xheight: f64,
     parameters: &SpacingParameters,
-    sample_frequency: usize,
     factor: f64,
     units_per_em: f64,
 ) -> (Option<f64>, Option<f64>) {
@@ -185,7 +194,7 @@ fn calculate_spacing(
             (bounds_reference_lower, bounds_reference_upper),
             angle,
             xheight,
-            sample_frequency,
+            parameters.sample_frequency,
             parameters.depth,
         );
 
@@ -440,10 +449,11 @@ mod tests {
     #[test]
     fn space_mutatorsans() {
         let font = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
+        let parameters = SpacingParameters::default();
+
         let default_layer = font.default_layer();
 
         let (units_per_em, angle, xheight) = get_global_metrics(&font);
-        let sample_frequency: usize = 5;
 
         // TODO: make own config instead of polluting global one
         for (name, left, right) in &[
@@ -506,7 +516,8 @@ mod tests {
             let paths_reference = drawing::path_for_glyph(glyph_ref, default_layer).unwrap();
             let bounds_reference = paths_reference.bounding_box();
 
-            let parameters = SpacingParameters::try_new_determine_or_default(&font, glyph).unwrap();
+            let parameters =
+                SpacingParameters::try_new_with_fallback(glyph, &font, &parameters).unwrap();
             let overshoot = xheight * parameters.overshoot / 100.0;
             let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
             let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
@@ -518,7 +529,6 @@ mod tests {
                 angle,
                 xheight,
                 &parameters,
-                sample_frequency,
                 factor,
                 units_per_em,
             );
