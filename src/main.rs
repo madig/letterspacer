@@ -83,6 +83,7 @@ fn space_font(font: &mut norad::Font, parameters: &SpacingParameters) {
     }
 }
 
+// TODO: take a layer param to space, font param should be for looking up keys only
 fn calculate_sidebearings(
     font: &norad::Font,
     parameters: &SpacingParameters,
