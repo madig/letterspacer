@@ -1,8 +1,6 @@
-use norad::{Font, Glyph};
-
-const AREA_KEY: &str = "com.ht.spacer.area";
-const DEPTH_KEY: &str = "com.ht.spacer.depth";
-const OVERSHOOT_KEY: &str = "com.ht.spacer.overshoot";
+pub const AREA_KEY: &str = "com.ht.spacer.area";
+pub const DEPTH_KEY: &str = "com.ht.spacer.depth";
+pub const OVERSHOOT_KEY: &str = "com.ht.spacer.overshoot";
 
 pub struct SpacingParameters {
     pub area: f64,
@@ -29,39 +27,52 @@ impl Default for SpacingParameters {
 }
 
 impl SpacingParameters {
-    pub(crate) fn try_new_with_fallback(
-        glyph: &Glyph,
-        font: &Font,
+    pub fn try_new_from_glyph(
+        lib: &norad::Plist,
         fallback: &Self,
     ) -> Result<Self, SpacingParametersError> {
         Ok(Self {
-            area: Self::cascading_lookup(AREA_KEY, fallback.area, glyph, font)?,
-            depth: Self::cascading_lookup(DEPTH_KEY, fallback.depth, glyph, font)?,
-            overshoot: Self::cascading_lookup(OVERSHOOT_KEY, fallback.overshoot, glyph, font)?,
+            area: glyph_lookup_f64(lib, AREA_KEY, fallback.area)?,
+            depth: glyph_lookup_f64(lib, DEPTH_KEY, fallback.depth)?,
+            overshoot: glyph_lookup_f64(lib, OVERSHOOT_KEY, fallback.overshoot)?,
             sample_frequency: fallback.sample_frequency,
         })
     }
+}
 
-    fn cascading_lookup(
-        key: &str,
-        default: f64,
-        glyph: &Glyph,
-        font: &Font,
-    ) -> Result<f64, SpacingParametersError> {
-        // Look for a key first in the glyph lib, then the font lib, then fall back to the CLI argument.
-        match glyph.lib.get(key) {
-            Some(v) => match v.as_real() {
-                Some(r) => Ok(r),
-                None => Err(SpacingParametersError::ExpectedRealNumberGlyph(key.into())),
-            },
-            None => match font.lib.get(key) {
-                Some(v) => match v.as_real() {
-                    Some(r) => Ok(r),
-                    None => Err(SpacingParametersError::ExpectedRealNumberFont(key.into())),
-                },
-                None => Ok(default),
-            },
+pub fn font_lookup_f64(
+    lib: &norad::Plist,
+    key: &str,
+    fallback: f64,
+) -> Result<f64, SpacingParametersError> {
+    if let Some(v) = lib.get(key) {
+        if let Some(v) = v.as_real() {
+            Ok(v)
+        } else if let Some(i) = v.as_unsigned_integer() {
+            Ok(i as f64)
+        } else {
+            Err(SpacingParametersError::ExpectedRealNumberFont(key.into()))
         }
+    } else {
+        Ok(fallback)
+    }
+}
+
+pub fn glyph_lookup_f64(
+    lib: &norad::Plist,
+    key: &str,
+    fallback: f64,
+) -> Result<f64, SpacingParametersError> {
+    if let Some(v) = lib.get(key) {
+        if let Some(v) = v.as_real() {
+            Ok(v)
+        } else if let Some(i) = v.as_unsigned_integer() {
+            Ok(i as f64)
+        } else {
+            Err(SpacingParametersError::ExpectedRealNumberGlyph(key.into()))
+        }
+    } else {
+        Ok(fallback)
     }
 }
 
@@ -71,10 +82,18 @@ impl std::fmt::Display for SpacingParametersError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SpacingParametersError::ExpectedRealNumberGlyph(key) => {
-                write!(f, "Expected glyph lib key '{}' to be a number.", key)
+                write!(
+                    f,
+                    "Expected glyph lib key '{}' to be a positive number.",
+                    key
+                )
             }
             SpacingParametersError::ExpectedRealNumberFont(key) => {
-                write!(f, "Expected font lib key '{}' to be a number.", key)
+                write!(
+                    f,
+                    "Expected font lib key '{}' to be a positive number.",
+                    key
+                )
             }
         }
     }

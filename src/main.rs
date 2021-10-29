@@ -23,54 +23,70 @@ pub mod parameters;
     about = "A configurable letter spacer for UFO font sources."
 )]
 pub(crate) struct Opt {
-    /// Set area.
-    #[structopt(long, default_value = "400.0")]
-    area: f64,
+    /// Set area (overrides font lib key).
+    #[structopt(long)]
+    area: Option<f64>,
 
-    /// Set depth.
-    #[structopt(long, default_value = "15.0")]
-    depth: f64,
+    /// Set depth (overrides font lib key).
+    #[structopt(long)]
+    depth: Option<f64>,
 
-    /// Set overshoot.
-    #[structopt(long, default_value = "0.0")]
-    overshoot: f64,
+    /// Set overshoot (overrides font lib key).
+    #[structopt(long)]
+    overshoot: Option<f64>,
 
     /// Set sample frequency.
-    #[structopt(long, default_value = "5")]
-    sample_frequency: usize,
+    #[structopt(long)]
+    sample_frequency: Option<usize>,
 
     /// The path to the UFOs to space.
     #[structopt(parse(from_os_str))]
     input: std::path::PathBuf,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Opt::from_args();
 
-    let mut font = match norad::Font::load(&args.input) {
-        Ok(v) => v,
-        Err(e) => {
-            error!("Loading UFO failed: {}", e);
-            std::process::exit(1);
-        }
+    let mut font = norad::Font::load(&args.input)?;
+
+    // Lookup order: CLI > font lib > default value.
+    let parameters = SpacingParameters::default();
+    let parameters = SpacingParameters {
+        area: match args.area {
+            Some(v) => v,
+            None => parameters::font_lookup_f64(&font.lib, parameters::AREA_KEY, parameters.area)?,
+        },
+        depth: match args.depth {
+            Some(v) => v,
+            None => {
+                parameters::font_lookup_f64(&font.lib, parameters::DEPTH_KEY, parameters.depth)?
+            }
+        },
+        overshoot: match args.overshoot {
+            Some(v) => v,
+            None => parameters::font_lookup_f64(
+                &font.lib,
+                parameters::OVERSHOOT_KEY,
+                parameters.overshoot,
+            )?,
+        },
+        sample_frequency: parameters.sample_frequency,
     };
 
-    let parameters = SpacingParameters {
-        area: args.area,
-        depth: args.depth,
-        overshoot: args.overshoot,
-        sample_frequency: args.sample_frequency,
-    };
-    space_font(&mut font, &parameters);
+    space_default_layer(&mut font, &parameters);
 
     font.meta.creator = Some("org.linebender.norad".into());
-    font.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))
-        .unwrap();
+    font.save(std::path::PathBuf::from("/tmp").join(args.input.file_name().unwrap()))?;
+
+    Ok(())
 }
 
-fn space_font(font: &mut norad::Font, parameters: &SpacingParameters) {
-    let new_side_bearings = calculate_sidebearings(font, parameters);
+fn space_default_layer(font: &mut norad::Font, parameters: &SpacingParameters) {
+    let (units_per_em, angle, xheight) = get_global_metrics(font);
+    let default_layer = font.default_layer();
+    let new_side_bearings =
+        calculate_sidebearings(default_layer, parameters, angle, units_per_em, xheight);
 
     let default_layer = font.default_layer_mut();
     for (name, (left, right)) in new_side_bearings {
@@ -83,20 +99,19 @@ fn space_font(font: &mut norad::Font, parameters: &SpacingParameters) {
     }
 }
 
-// TODO: take a layer param to space, font param should be for looking up keys only
 fn calculate_sidebearings(
-    font: &norad::Font,
+    layer: &norad::Layer,
     parameters: &SpacingParameters,
+    angle: f64,
+    units_per_em: f64,
+    xheight: f64,
 ) -> HashMap<String, (f64, f64)> {
-    let (units_per_em, angle, xheight) = get_global_metrics(font);
-
-    let default_layer = font.default_layer();
     let mut new_side_bearings = HashMap::new();
-    for glyph in default_layer.iter() {
+    for glyph in layer.iter() {
         let (glyph_reference, factor) = config::config_for_glyph(&glyph.name);
-        let glyph_reference = default_layer.get_glyph(glyph_reference).unwrap();
+        let glyph_reference = layer.get_glyph(glyph_reference).unwrap();
 
-        let paths = match drawing::path_for_glyph(glyph, default_layer) {
+        let paths = match drawing::path_for_glyph(glyph, layer) {
             Ok(path) => path,
             Err(e) => {
                 error!("Error while drawing {}: {:?}", glyph.name, e);
@@ -104,7 +119,7 @@ fn calculate_sidebearings(
             }
         };
         let bounds = paths.bounding_box();
-        let paths_reference = match drawing::path_for_glyph(glyph_reference, default_layer) {
+        let paths_reference = match drawing::path_for_glyph(glyph_reference, layer) {
             Ok(path) => path,
             Err(e) => {
                 error!("Error while drawing {}: {:?}", glyph_reference.name, e);
@@ -112,7 +127,7 @@ fn calculate_sidebearings(
             }
         };
 
-        let parameters = SpacingParameters::try_new_with_fallback(glyph, font, parameters).unwrap();
+        let parameters = SpacingParameters::try_new_from_glyph(&glyph.lib, parameters).unwrap();
         let overshoot = xheight * parameters.overshoot / 100.0;
 
         let bounds_reference = paths_reference.bounding_box();
@@ -132,7 +147,7 @@ fn calculate_sidebearings(
 
         // Stash new metrics away. We have to do a second iteration so we can get a
         // mut ref to glyphs to modify them. Doing it in this loop is complicated by
-        // misc. functions needing a normal ref to default_layer while we hold a mut ref...
+        // misc. functions needing a normal ref to layer while we hold a mut ref...
         if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
             let delta_left = new_left - bounds.min_x();
             let delta_right = bounds.max_x() + delta_left + new_right;
@@ -519,7 +534,7 @@ mod tests {
             let bounds_reference = paths_reference.bounding_box();
 
             let parameters =
-                SpacingParameters::try_new_with_fallback(glyph, &font, &parameters).unwrap();
+                SpacingParameters::try_new_from_glyph(&glyph.lib, &parameters).unwrap();
             let overshoot = xheight * parameters.overshoot / 100.0;
             let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
             let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
