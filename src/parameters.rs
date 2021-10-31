@@ -48,7 +48,7 @@ pub fn font_lookup_f64(
     if let Some(v) = lib.get(key) {
         if let Some(v) = v.as_real() {
             Ok(v)
-        } else if let Some(i) = v.as_unsigned_integer() {
+        } else if let Some(i) = v.as_signed_integer() {
             Ok(i as f64)
         } else {
             Err(SpacingParametersError::ExpectedRealNumberFont(key.into()))
@@ -66,7 +66,7 @@ pub fn glyph_lookup_f64(
     if let Some(v) = lib.get(key) {
         if let Some(v) = v.as_real() {
             Ok(v)
-        } else if let Some(i) = v.as_unsigned_integer() {
+        } else if let Some(i) = v.as_signed_integer() {
             Ok(i as f64)
         } else {
             Err(SpacingParametersError::ExpectedRealNumberGlyph(key.into()))
@@ -82,18 +82,10 @@ impl std::fmt::Display for SpacingParametersError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SpacingParametersError::ExpectedRealNumberGlyph(key) => {
-                write!(
-                    f,
-                    "Expected glyph lib key '{}' to be a positive number.",
-                    key
-                )
+                write!(f, "Expected glyph lib key '{}' to be a number.", key)
             }
             SpacingParametersError::ExpectedRealNumberFont(key) => {
-                write!(
-                    f,
-                    "Expected font lib key '{}' to be a positive number.",
-                    key
-                )
+                write!(f, "Expected font lib key '{}' to be a number.", key)
             }
         }
     }
