@@ -2,6 +2,9 @@
 ///
 /// A data dump of a HTLetterspacer configuration, so I don't have to parse and
 /// interprete Glyphs.app's GlyphData.xml file.
+/// 
+/// TODO: Replace with a configuration file and mechanism that works from Unicode
+///       data but lets you freely group glyphs and assign factors?
 pub fn config_for_glyph(name: &str) -> (&str, f64) {
     const LETTER_LOWERCASE: f64 = 1.0;
     const LETTER_SMALLCAPS: f64 = 1.1;
