@@ -1,11 +1,11 @@
-use log::error;
-use parameters::SpacingParameters;
-
 use std::collections::HashMap;
 
 use kurbo::{BezPath, Line, ParamCurve, Point, Rect, Shape};
+use log::error;
 use norad::Glyph;
 use structopt::StructOpt;
+
+use parameters::SpacingParameters;
 
 pub mod config;
 pub mod drawing;
