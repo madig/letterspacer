@@ -101,7 +101,7 @@ fn space_default_layer(font: &mut norad::Font, parameters: &SpacingParameters) {
 
 // TODO: refactor to work per-glyph?
 /// Returns a map of glyph name to the delta to move the glyph on the left side by and the advance width.
-/// 
+///
 /// First move the glyph by the left delta, then set the advance width.
 fn calculate_sidebearings(
     layer: &norad::Layer,
@@ -470,17 +470,7 @@ mod tests {
     fn space_mutatorsans() {
         let font = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
         let parameters = SpacingParameters::default();
-        let (units_per_em, angle, xheight) = get_global_metrics(&font);
-
-        let sidebearing_deltas = calculate_sidebearings(
-            font.default_layer(),
-            &parameters,
-            angle,
-            units_per_em,
-            xheight,
-        );
-
-        for (name, margins) in [
+        let expected = [
             ("A", Some((23.0, 23.0))),
             ("Aacute", Some((23.0, 23.0))),
             ("Adieresis", Some((23.0, 23.0))),
@@ -529,15 +519,34 @@ mod tests {
             ("quotesinglbase", Some((94.0, 91.0))),
             ("semicolon", Some((88.0, 86.0))),
             ("space", None),
-        ] {
+        ];
+
+        check_expectations(&font, &parameters, &expected);
+    }
+
+    fn check_expectations(
+        font: &norad::Font,
+        parameters: &SpacingParameters,
+        expected: &[(&str, Option<(f64, f64)>)],
+    ) {
+        let (units_per_em, angle, xheight) = get_global_metrics(&font);
+        let sidebearing_deltas = calculate_sidebearings(
+            font.default_layer(),
+            &parameters,
+            angle,
+            units_per_em,
+            xheight,
+        );
+
+        for (name, margins) in expected {
             match margins {
                 Some((left, right)) => {
-                    let glyph = font.get_glyph(name).unwrap();
+                    let glyph = font.get_glyph(*name).unwrap();
                     let drawing = drawing::path_for_glyph(glyph, &font.default_layer()).unwrap();
                     let bbox = drawing.bounding_box();
 
                     let (glyph_reference, factor) = config::config_for_glyph(name);
-                    let (delta_left, advance_width) = sidebearing_deltas[name];
+                    let (delta_left, advance_width) = sidebearing_deltas[*name];
                     let (new_left, new_right) = (
                         bbox.min_x() + delta_left,
                         advance_width - bbox.max_x() - delta_left,
@@ -563,7 +572,7 @@ mod tests {
                         factor
                     );
                 }
-                None => assert!(!sidebearing_deltas.contains_key(name)),
+                None => assert!(!sidebearing_deltas.contains_key(*name)),
             }
         }
     }
