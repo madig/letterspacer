@@ -14,3 +14,7 @@ kurbo = "0.8"
 log = "0.4"
 norad = { version = "0.6", features = ["kurbo"] }
 structopt = { version = "0.3", default-features = false }
+
+[dev-dependencies]
+quickcheck_macros = "0.9"
+quickcheck = "0.9"
