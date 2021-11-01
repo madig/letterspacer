@@ -99,6 +99,10 @@ fn space_default_layer(font: &mut norad::Font, parameters: &SpacingParameters) {
     }
 }
 
+// TODO: refactor to work per-glyph?
+/// Returns a map of glyph name to the delta to move the glyph on the left side by and the advance width.
+/// 
+/// First move the glyph by the left delta, then set the advance width.
 fn calculate_sidebearings(
     layer: &norad::Layer,
     parameters: &SpacingParameters,
@@ -150,8 +154,8 @@ fn calculate_sidebearings(
         // misc. functions needing a normal ref to layer while we hold a mut ref...
         if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
             let delta_left = new_left - bounds.min_x();
-            let delta_right = bounds.max_x() + delta_left + new_right;
-            new_side_bearings.insert(glyph.name.to_string(), (delta_left, delta_right));
+            let advance_width = bounds.max_x() + delta_left + new_right;
+            new_side_bearings.insert(glyph.name.to_string(), (delta_left, advance_width));
         }
     }
 
@@ -466,119 +470,100 @@ mod tests {
     fn space_mutatorsans() {
         let font = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
         let parameters = SpacingParameters::default();
-
-        let default_layer = font.default_layer();
-
         let (units_per_em, angle, xheight) = get_global_metrics(&font);
 
-        // TODO: make own config instead of polluting global one
-        // TODO: Refactor to call just a function and compare sidebearings output
-        for (name, left, right) in &[
-            ("A", Some(23.0), Some(23.0)),
-            ("Aacute", Some(23.0), Some(23.0)),
-            ("Adieresis", Some(23.0), Some(23.0)),
-            ("B", Some(92.0), Some(43.0)),
-            ("C", Some(49.0), Some(43.0)),
-            ("D", Some(92.0), Some(49.0)),
-            ("E", Some(92.0), Some(33.0)),
-            ("F", Some(92.0), Some(32.0)),
-            ("G", Some(49.0), Some(66.0)),
-            ("H", Some(92.0), Some(92.0)),
-            ("I", Some(33.0), Some(33.0)),
-            ("I.narrow", Some(92.0), Some(92.0)),
-            ("IJ", Some(71.0), Some(72.0)),
-            ("J", Some(41.0), Some(75.0)),
-            ("J.narrow", Some(24.0), Some(72.0)),
-            ("K", Some(92.0), Some(25.0)),
-            ("L", Some(92.0), Some(25.0)),
-            ("M", Some(92.0), Some(92.0)),
-            ("N", Some(92.0), Some(92.0)),
-            ("O", Some(49.0), Some(49.0)),
-            ("P", Some(92.0), Some(46.0)),
-            ("Q", Some(49.0), Some(49.0)),
-            ("R", Some(92.0), Some(49.0)),
-            ("S", Some(38.0), Some(44.0)),
-            ("S.closed", Some(43.0), Some(42.0)),
-            ("T", Some(25.0), Some(25.0)),
-            ("U", Some(72.0), Some(72.0)),
-            ("V", Some(23.0), Some(23.0)),
-            ("W", Some(26.0), Some(26.0)),
-            ("X", Some(19.0), Some(25.0)),
-            ("Y", Some(22.0), Some(22.0)),
-            ("Z", Some(33.0), Some(33.0)),
-            ("acute", Some(79.0), Some(79.0)),
-            ("arrowdown", Some(89.0), Some(91.0)),
-            ("arrowleft", Some(95.0), Some(111.0)),
-            ("arrowright", Some(110.0), Some(96.0)),
-            ("arrowup", Some(91.0), Some(89.0)),
-            ("colon", Some(88.0), Some(88.0)),
-            ("comma", Some(94.0), Some(91.0)),
-            ("dieresis", Some(80.0), Some(80.0)),
-            ("dot", Some(80.0), Some(80.0)),
-            ("period", Some(96.0), Some(96.0)),
-            ("quotedblbase", Some(94.0), Some(91.0)),
-            ("quotedblleft", Some(91.0), Some(94.0)),
-            ("quotedblright", Some(94.0), Some(91.0)),
-            ("quotesinglbase", Some(94.0), Some(91.0)),
-            ("semicolon", Some(88.0), Some(86.0)),
-            ("space", None, None),
+        let sidebearing_deltas = calculate_sidebearings(
+            font.default_layer(),
+            &parameters,
+            angle,
+            units_per_em,
+            xheight,
+        );
+
+        for (name, margins) in [
+            ("A", Some((23.0, 23.0))),
+            ("Aacute", Some((23.0, 23.0))),
+            ("Adieresis", Some((23.0, 23.0))),
+            ("B", Some((92.0, 43.0))),
+            ("C", Some((49.0, 43.0))),
+            ("D", Some((92.0, 49.0))),
+            ("E", Some((92.0, 33.0))),
+            ("F", Some((92.0, 32.0))),
+            ("G", Some((49.0, 66.0))),
+            ("H", Some((92.0, 92.0))),
+            ("I", Some((33.0, 33.0))),
+            ("I.narrow", Some((92.0, 92.0))),
+            ("IJ", Some((71.0, 72.0))),
+            ("J", Some((41.0, 75.0))),
+            ("J.narrow", Some((24.0, 72.0))),
+            ("K", Some((92.0, 25.0))),
+            ("L", Some((92.0, 25.0))),
+            ("M", Some((92.0, 92.0))),
+            ("N", Some((92.0, 92.0))),
+            ("O", Some((49.0, 49.0))),
+            ("P", Some((92.0, 46.0))),
+            ("Q", Some((49.0, 49.0))),
+            ("R", Some((92.0, 49.0))),
+            ("S", Some((38.0, 44.0))),
+            ("S.closed", Some((43.0, 42.0))),
+            ("T", Some((25.0, 25.0))),
+            ("U", Some((72.0, 72.0))),
+            ("V", Some((23.0, 23.0))),
+            ("W", Some((26.0, 26.0))),
+            ("X", Some((19.0, 25.0))),
+            ("Y", Some((22.0, 22.0))),
+            ("Z", Some((33.0, 33.0))),
+            ("acute", Some((79.0, 79.0))),
+            ("arrowdown", Some((89.0, 91.0))),
+            ("arrowleft", Some((95.0, 111.0))),
+            ("arrowright", Some((110.0, 96.0))),
+            ("arrowup", Some((91.0, 89.0))),
+            ("colon", Some((88.0, 88.0))),
+            ("comma", Some((94.0, 91.0))),
+            ("dieresis", Some((80.0, 80.0))),
+            ("dot", Some((80.0, 80.0))),
+            ("period", Some((96.0, 96.0))),
+            ("quotedblbase", Some((94.0, 91.0))),
+            ("quotedblleft", Some((91.0, 94.0))),
+            ("quotedblright", Some((94.0, 91.0))),
+            ("quotesinglbase", Some((94.0, 91.0))),
+            ("semicolon", Some((88.0, 86.0))),
+            ("space", None),
         ] {
-            let glyph = font.get_glyph(*name).unwrap();
+            match margins {
+                Some((left, right)) => {
+                    let glyph = font.get_glyph(name).unwrap();
+                    let drawing = drawing::path_for_glyph(glyph, &font.default_layer()).unwrap();
+                    let bbox = drawing.bounding_box();
 
-            let (glyph_ref_name, factor) = config::config_for_glyph(&glyph.name);
-            let glyph_ref = font.get_glyph(glyph_ref_name).unwrap();
+                    let (glyph_reference, factor) = config::config_for_glyph(name);
+                    let (delta_left, advance_width) = sidebearing_deltas[name];
+                    let (new_left, new_right) = (
+                        bbox.min_x() + delta_left,
+                        advance_width - bbox.max_x() - delta_left,
+                    );
 
-            let paths = drawing::path_for_glyph(glyph, default_layer).unwrap();
-            let bounds = paths.bounding_box();
-            let paths_reference = drawing::path_for_glyph(glyph_ref, default_layer).unwrap();
-            let bounds_reference = paths_reference.bounding_box();
+                    assert!(
+                        (left - new_left).abs() <= 1.0,
+                        "Glyph {}: expected left {} but got {} (glyph reference {}, factor {})",
+                        name,
+                        left,
+                        new_left,
+                        glyph_reference,
+                        factor
+                    );
 
-            let parameters =
-                SpacingParameters::try_new_from_glyph(&glyph.lib, &parameters).unwrap();
-            let overshoot = xheight * parameters.overshoot / 100.0;
-            let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
-            let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
-
-            let (new_left, new_right) = calculate_spacing(
-                paths,
-                bounds,
-                (bounds_reference_lower, bounds_reference_upper),
-                angle,
-                xheight,
-                &parameters,
-                factor,
-                units_per_em,
-            );
-
-            match (left, new_left) {
-                (Some(v), Some(new_v)) => assert!(
-                    (*v - new_v).abs() <= 1.0,
-                    "Glyph {}: expected left {} but got {} (factor {})",
-                    *name,
-                    v,
-                    new_v,
-                    factor
-                ),
-                (None, None) => (),
-                _ => panic!(
-                    "Glyph {}, left side: expected {:?}, got {:?} (factor {})",
-                    *name, left, new_left, factor
-                ),
-            }
-            match (right, new_right) {
-                (Some(v), Some(new_v)) => assert!(
-                    (*v - new_v).abs() <= 1.0,
-                    "Glyph {}: expected right {} but got {} (factor {})",
-                    *name,
-                    v,
-                    new_v,
-                    factor
-                ),
-                (None, None) => (),
-                _ => panic!(
-                    "Glyph {}, right side: expected {:?}, got {:?} (factor {})",
-                    *name, right, new_right, factor
-                ),
+                    assert!(
+                        (right - new_right).abs() <= 1.0,
+                        "Glyph {}: expected right {} but got {} (glyph reference {}, factor {})",
+                        name,
+                        right,
+                        new_right,
+                        glyph_reference,
+                        factor
+                    );
+                }
+                None => assert!(!sidebearing_deltas.contains_key(name)),
             }
         }
     }
