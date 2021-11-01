@@ -529,10 +529,10 @@ mod tests {
         parameters: &SpacingParameters,
         expected: &[(&str, Option<(f64, f64)>)],
     ) {
-        let (units_per_em, angle, xheight) = get_global_metrics(&font);
+        let (units_per_em, angle, xheight) = get_global_metrics(font);
         let sidebearing_deltas = calculate_sidebearings(
             font.default_layer(),
-            &parameters,
+            parameters,
             angle,
             units_per_em,
             xheight,
@@ -542,7 +542,7 @@ mod tests {
             match margins {
                 Some((left, right)) => {
                     let glyph = font.get_glyph(*name).unwrap();
-                    let drawing = drawing::path_for_glyph(glyph, &font.default_layer()).unwrap();
+                    let drawing = drawing::path_for_glyph(glyph, font.default_layer()).unwrap();
                     let bbox = drawing.bounding_box();
 
                     let (glyph_reference, factor) = config::config_for_glyph(name);
