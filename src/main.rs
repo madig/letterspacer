@@ -10,13 +10,6 @@ use parameters::SpacingParameters;
 pub mod config;
 pub mod drawing;
 pub mod parameters;
-pub mod topological_sort;
-
-#[cfg(test)]
-extern crate quickcheck;
-#[cfg(test)]
-#[macro_use(quickcheck)]
-extern crate quickcheck_macros;
 
 // TODO:
 // - Write `set_(left|right)_margin` plus `move`
