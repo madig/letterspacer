@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use kurbo::{BezPath, Line, ParamCurve, Point, Rect, Shape};
-use log::error;
-use norad::Glyph;
+use log::{error, warn};
+use norad::{Font, Glyph, GlyphName, Layer};
 use structopt::StructOpt;
 
 use parameters::SpacingParameters;
@@ -83,20 +83,84 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn space_default_layer(font: &mut norad::Font, parameters: &SpacingParameters) {
-    let (units_per_em, angle, xheight) = get_global_metrics(font);
-    let default_layer = font.default_layer();
-    let new_side_bearings =
-        calculate_sidebearings(default_layer, parameters, angle, units_per_em, xheight);
-
+    let font_metrics = FontMetrics::from_font(font);
     let default_layer = font.default_layer_mut();
-    for (name, (left, right)) in new_side_bearings {
-        let glyph = default_layer.get_glyph_mut(&*name).unwrap();
-        move_glyph_x(glyph, left);
-        glyph.width = right;
-        // TODO: go though all composites using `glyph` and counter-move them to
-        // keep them in place. Need some sort of topological sorter to move
-        // component glyphs in the right order, once.
+    let glyphs = prepare_glyphs(default_layer, parameters);
+    let composites = composite_graph(default_layer);
+
+    let new_side_bearings = calculate_sidebearings(&glyphs, &font_metrics);
+
+    for (name, (delta_left, advance_width)) in new_side_bearings {
+        let glyph = default_layer.get_glyph_mut(&name).unwrap();
+        move_glyph_x(glyph, delta_left);
+        glyph.width = advance_width;
+
+        // Go though all composites using the glyph and counter-move the component of it to
+        // keep it in place.
+        if let Some(glyphs_to_countermove) = composites.get(&name) {
+            for glyph_name in glyphs_to_countermove {
+                let dependent_glyph = default_layer.get_glyph_mut(glyph_name).unwrap();
+                for component in dependent_glyph
+                    .components
+                    .iter_mut()
+                    .filter(|c| c.base == name)
+                {
+                    component.transform.x_offset -= delta_left;
+                }
+            }
+        }
     }
+}
+
+/// Returns which glyphs are used as a component in which other glyphs.
+///
+/// E.g. `{"a": {"aacute", "acircumflex"}, ...}`.
+fn composite_graph(layer: &Layer) -> HashMap<GlyphName, HashSet<GlyphName>> {
+    let mut composite_graph: HashMap<GlyphName, HashSet<GlyphName>> = HashMap::new();
+
+    for glyph in layer.iter() {
+        for component in &glyph.components {
+            composite_graph
+                .entry(component.base.clone())
+                .or_default()
+                .insert(glyph.name.clone());
+        }
+    }
+
+    composite_graph
+}
+
+/// Prepares the BezPath, bounding box and glyph-specific spacing parameters for all glyphs in a layer.
+fn prepare_glyphs(
+    layer: &norad::Layer,
+    global_parameters: &SpacingParameters,
+) -> HashMap<GlyphName, (BezPath, Rect, SpacingParameters)> {
+    let mut paths = HashMap::with_capacity(layer.len());
+
+    for glyph in layer.iter() {
+        match drawing::path_for_glyph(glyph, layer) {
+            Ok(path) => {
+                let bbox = path.bounding_box();
+                let parameters =
+                    match SpacingParameters::try_new_from_glyph(&glyph.lib, global_parameters) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            error!(
+                                "Error while extracting spacing parameters from {}: {:?}",
+                                glyph.name, e
+                            );
+                            continue;
+                        }
+                    };
+                paths.insert(glyph.name.clone(), (path, bbox, parameters));
+            }
+            Err(e) => {
+                error!("Error while drawing {}: {:?}", glyph.name, e);
+            }
+        };
+    }
+
+    paths
 }
 
 // TODO: refactor to work per-glyph?
@@ -104,37 +168,26 @@ fn space_default_layer(font: &mut norad::Font, parameters: &SpacingParameters) {
 ///
 /// First move the glyph by the left delta, then set the advance width.
 fn calculate_sidebearings(
-    layer: &norad::Layer,
-    parameters: &SpacingParameters,
-    angle: f64,
-    units_per_em: f64,
-    xheight: f64,
-) -> HashMap<String, (f64, f64)> {
+    glyphs: &HashMap<GlyphName, (BezPath, Rect, SpacingParameters)>,
+    font_metrics: &FontMetrics,
+) -> HashMap<GlyphName, (f64, f64)> {
     let mut new_side_bearings = HashMap::new();
-    for glyph in layer.iter() {
-        let (glyph_reference, factor) = config::config_for_glyph(&glyph.name);
-        let glyph_reference = layer.get_glyph(glyph_reference).unwrap();
 
-        let paths = match drawing::path_for_glyph(glyph, layer) {
-            Ok(path) => path,
-            Err(e) => {
-                error!("Error while drawing {}: {:?}", glyph.name, e);
-                continue;
-            }
-        };
-        let bounds = paths.bounding_box();
-        let paths_reference = match drawing::path_for_glyph(glyph_reference, layer) {
-            Ok(path) => path,
-            Err(e) => {
-                error!("Error while drawing {}: {:?}", glyph_reference.name, e);
+    for (glyph_name, (paths, bounds, parameters)) in glyphs.iter() {
+        let (reference_name, factor) = config::config_for_glyph(glyph_name);
+        let (_, bounds_reference, _) = match glyphs.get(reference_name) {
+            Some(path) => path,
+            None => {
+                warn!(
+                    "Skipping {} because reference glyph {} wasn't found.",
+                    glyph_name, reference_name
+                );
                 continue;
             }
         };
 
-        let parameters = SpacingParameters::try_new_from_glyph(&glyph.lib, parameters).unwrap();
-        let overshoot = xheight * parameters.overshoot / 100.0;
+        let overshoot = font_metrics.xheight * parameters.overshoot / 100.0;
 
-        let bounds_reference = paths_reference.bounding_box();
         let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
         let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
 
@@ -142,11 +195,9 @@ fn calculate_sidebearings(
             paths,
             bounds,
             (bounds_reference_lower, bounds_reference_upper),
-            angle,
-            xheight,
-            &parameters,
+            font_metrics,
+            parameters,
             factor,
-            units_per_em,
         );
 
         // Stash new metrics away. We have to do a second iteration so we can get a
@@ -155,27 +206,35 @@ fn calculate_sidebearings(
         if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
             let delta_left = new_left - bounds.min_x();
             let advance_width = bounds.max_x() + delta_left + new_right;
-            new_side_bearings.insert(glyph.name.to_string(), (delta_left, advance_width));
+            new_side_bearings.insert(glyph_name.clone(), (delta_left, advance_width));
         }
     }
 
     new_side_bearings
 }
 
-fn get_global_metrics(font: &norad::Font) -> (f64, f64, f64) {
-    let units_per_em: f64 = font
-        .font_info
-        .units_per_em
-        .map(|v| v.get())
-        .unwrap_or(1000.0);
-    let angle: f64 = font
-        .font_info
-        .italic_angle
-        .map(|v| -v.get())
-        .unwrap_or_default();
-    let xheight: f64 = font.font_info.x_height.map(|v| v.get()).unwrap_or_default();
+struct FontMetrics {
+    angle: f64,
+    units_per_em: f64,
+    xheight: f64,
+}
 
-    (units_per_em, angle, xheight)
+impl FontMetrics {
+    fn from_font(font: &Font) -> Self {
+        Self {
+            angle: font
+                .font_info
+                .italic_angle
+                .map(|v| -v.get())
+                .unwrap_or_default(),
+            units_per_em: font
+                .font_info
+                .units_per_em
+                .map(|v| v.get())
+                .unwrap_or(1000.0),
+            xheight: font.font_info.x_height.map(|v| v.get()).unwrap_or_default(),
+        }
+    }
 }
 
 /// Shift anchors, contours and components of a glyph horizontally by `delta`.
@@ -194,14 +253,12 @@ fn move_glyph_x(glyph: &mut Glyph, delta: f64) {
 }
 
 fn calculate_spacing(
-    paths: BezPath,
-    bounds: Rect,
+    paths: &BezPath,
+    bounds: &Rect,
     (bounds_reference_lower, bounds_reference_upper): (f64, f64),
-    angle: f64,
-    xheight: f64,
+    font_metrics: &FontMetrics,
     parameters: &SpacingParameters,
     factor: f64,
-    units_per_em: f64,
 ) -> (Option<f64>, Option<f64>) {
     if paths.is_empty() {
         return (None, None);
@@ -209,17 +266,13 @@ fn calculate_spacing(
 
     let (left, extreme_left_full, extreme_left, right, extreme_right_full, extreme_right) =
         spacing_polygons(
-            &paths,
-            &bounds,
+            paths,
+            bounds,
             (bounds_reference_lower, bounds_reference_upper),
-            angle,
-            xheight,
+            font_metrics,
             parameters.sample_frequency,
             parameters.depth,
         );
-
-    // let background_glyph = draw_glyph_outer_outline_into_glyph(glyph_name, (&left, &right));
-    // background_glyphs.push(background_glyph);
 
     // Difference between extreme points full and in zone.
     let distance_left = (extreme_left.x - extreme_left_full.x).ceil();
@@ -231,8 +284,7 @@ fn calculate_spacing(
             (bounds_reference_lower, bounds_reference_upper),
             parameters.area,
             &left,
-            units_per_em,
-            xheight,
+            font_metrics,
         ))
     .ceil();
     let new_right = (-distance_right
@@ -241,8 +293,7 @@ fn calculate_spacing(
             (bounds_reference_lower, bounds_reference_upper),
             parameters.area,
             &right,
-            units_per_em,
-            xheight,
+            font_metrics,
         ))
     .ceil();
 
@@ -254,13 +305,12 @@ fn calculate_sidebearing_value(
     (bounds_reference_lower, bounds_reference_upper): (f64, f64),
     area: f64,
     polygon: &[Point],
-    units_per_em: f64,
-    xheight: f64,
+    font_metrics: &FontMetrics,
 ) -> f64 {
     let amplitude_y = bounds_reference_upper - bounds_reference_lower;
-    let area_upm = area * (units_per_em / 1000.0).powi(2);
+    let area_upm = area * (font_metrics.units_per_em / 1000.0).powi(2);
     let white_area = area_upm * factor * 100.0;
-    let prop_area = (amplitude_y * white_area) / xheight;
+    let prop_area = (amplitude_y * white_area) / font_metrics.xheight;
     let valor = prop_area - calculate_area(polygon);
     valor / amplitude_y
 }
@@ -281,14 +331,13 @@ fn spacing_polygons(
     paths: &BezPath,
     bounds: &Rect,
     (bounds_reference_lower, bounds_reference_upper): (f64, f64),
-    angle: f64,
-    xheight: f64,
+    font_metrics: &FontMetrics,
     sample_frequency: usize,
     depth: f64,
 ) -> (Vec<Point>, Point, Point, Vec<Point>, Point, Point) {
     // For deskewing angled glyphs. Makes subsequent processing easier.
-    let skew_offset = xheight / 2.0;
-    let tan_angle = angle.to_radians().tan();
+    let skew_offset = font_metrics.xheight / 2.0;
+    let tan_angle = font_metrics.angle.to_radians().tan();
 
     // First pass: Collect the outer intersections of a horizontal line with the glyph on both sides, going bottom
     // to top. The spacing polygon is vertically limited to lower_bound_reference..=upper_bound_reference,
@@ -324,7 +373,7 @@ fn spacing_polygons(
             hits.sort_by_key(|k| k.x.round() as i32);
             let mut first = *hits.first().unwrap();
             let mut last = *hits.last().unwrap();
-            if angle != 0.0 {
+            if font_metrics.angle != 0.0 {
                 first = Point::new(first.x - (y - skew_offset) * tan_angle, first.y);
                 last = Point::new(last.x - (y - skew_offset) * tan_angle, last.y);
             }
@@ -355,7 +404,7 @@ fn spacing_polygons(
     let extreme_right = extreme_right.unwrap();
 
     // Second pass: Cap the margin samples to a maximum depth from the outermost point in to get our depth cut-in.
-    let depth = xheight * depth / 100.0;
+    let depth = font_metrics.xheight * depth / 100.0;
     let max_depth = extreme_left.x + depth;
     let min_depth = extreme_right.x - depth;
     left.iter_mut().for_each(|s| s.x = s.x.min(max_depth));
@@ -425,43 +474,6 @@ fn intersections_for_line(paths: &BezPath, line: Line) -> Vec<Point> {
         .collect()
 }
 
-// fn draw_glyph_outer_outline_into_glyph(
-//     glyph_name: impl Into<GlyphName>,
-//     outlines: (&Vec<Point>, &Vec<Point>),
-// ) -> Glyph {
-//     let mut builder = GlyphBuilder::new(glyph_name, GlifVersion::V2);
-//     let mut outline_builder = OutlineBuilder::new();
-//     outline_builder.begin_path(None).unwrap();
-//     for left in outlines.0 {
-//         outline_builder
-//             .add_point(
-//                 (left.x.round() as f32, left.y.round() as f32),
-//                 PointType::Line,
-//                 false,
-//                 None,
-//                 None,
-//             )
-//             .unwrap();
-//     }
-//     outline_builder.end_path().unwrap();
-//     outline_builder.begin_path(None).unwrap();
-//     for right in outlines.1 {
-//         outline_builder
-//             .add_point(
-//                 (right.x.round() as f32, right.y.round() as f32),
-//                 PointType::Line,
-//                 false,
-//                 None,
-//                 None,
-//             )
-//             .unwrap();
-//     }
-//     outline_builder.end_path().unwrap();
-//     let (outline, identifiers) = outline_builder.finish().unwrap();
-//     builder.outline(outline, identifiers).unwrap();
-//     builder.finish().unwrap()
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -520,23 +532,18 @@ mod tests {
             ("semicolon", Some((88.0, 86.0))),
             ("space", None),
         ];
+        let glyphs = prepare_glyphs(font.default_layer(), &parameters);
 
-        check_expectations(&font, &parameters, &expected);
+        check_expectations(&font, &glyphs, &expected);
     }
 
     fn check_expectations(
         font: &norad::Font,
-        parameters: &SpacingParameters,
+        glyphs: &HashMap<GlyphName, (BezPath, Rect, SpacingParameters)>,
         expected: &[(&str, Option<(f64, f64)>)],
     ) {
-        let (units_per_em, angle, xheight) = get_global_metrics(font);
-        let sidebearing_deltas = calculate_sidebearings(
-            font.default_layer(),
-            parameters,
-            angle,
-            units_per_em,
-            xheight,
-        );
+        let font_metrics = FontMetrics::from_font(font);
+        let sidebearing_deltas = calculate_sidebearings(glyphs, &font_metrics);
 
         for (name, margins) in expected {
             match margins {
