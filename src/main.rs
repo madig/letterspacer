@@ -12,9 +12,7 @@ pub mod drawing;
 pub mod parameters;
 
 // TODO:
-// - Write `set_(left|right)_margin` plus `move`
 // - Write deslanter for italic sidebearings
-// - Write new_layer
 // - Make spacing polygons BezPaths for free `area` fn?
 
 #[derive(Debug, StructOpt)]
@@ -45,7 +43,9 @@ pub(crate) struct Opt {
 }
 
 fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn"))
+        .format_timestamp(None)
+        .init();
     let args = Opt::from_args();
 
     let mut font = norad::Font::load(&args.input)?;
@@ -204,6 +204,18 @@ fn calculate_sidebearings(
         // mut ref to glyphs to modify them. Doing it in this loop is complicated by
         // misc. functions needing a normal ref to layer while we hold a mut ref...
         if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
+            use std::num::FpCategory::{Infinite, Nan, Subnormal};
+            match (new_left.classify(), new_right.classify()) {
+                (Infinite | Nan | Subnormal, Infinite | Nan | Subnormal) => {
+                    warn!(
+                        "Glyph '{}': failed to compute spacing, skipping.",
+                        glyph_name
+                    );
+                    continue;
+                }
+                _ => (),
+            }
+
             let delta_left = new_left - bounds.min_x();
             let advance_width = bounds.max_x() + delta_left + new_right;
             new_side_bearings.insert(glyph_name.clone(), (delta_left, advance_width));
@@ -374,6 +386,7 @@ fn spacing_polygons(
             let mut first = *hits.first().unwrap();
             let mut last = *hits.last().unwrap();
             if font_metrics.angle != 0.0 {
+                // De-slant both points to simulate an upright glyph. Makes things easier.
                 first = Point::new(first.x - (y - skew_offset) * tan_angle, first.y);
                 last = Point::new(last.x - (y - skew_offset) * tan_angle, last.y);
             }
@@ -398,10 +411,11 @@ fn spacing_polygons(
         }
     }
 
-    let extreme_left_full = extreme_left_full.unwrap();
-    let extreme_left = extreme_left.unwrap();
-    let extreme_right_full = extreme_right_full.unwrap();
-    let extreme_right = extreme_right.unwrap();
+    // A glyph may have bogus geometry, skip it later.
+    let extreme_left_full = extreme_left_full.unwrap_or_default();
+    let extreme_left = extreme_left.unwrap_or_default();
+    let extreme_right_full = extreme_right_full.unwrap_or_default();
+    let extreme_right = extreme_right.unwrap_or_default();
 
     // Second pass: Cap the margin samples to a maximum depth from the outermost point in to get our depth cut-in.
     let depth = font_metrics.xheight * depth / 100.0;
@@ -535,6 +549,43 @@ mod tests {
         let glyphs = prepare_glyphs(font.default_layer(), &parameters);
 
         check_expectations(&font, &glyphs, &expected);
+    }
+
+    #[test]
+    fn space_bogus() {
+        // Glyphs with bogus geometry should be skipped.
+
+        let zero_point = || {
+            norad::ContourPoint::new(
+                0.0,
+                0.0,
+                norad::PointType::OffCurve,
+                false,
+                None,
+                None,
+                None,
+            )
+        };
+
+        let mut font = Font::new();
+        let mut glyph = Glyph::new_named("bogus");
+        glyph.width = 1000.0;
+        glyph.contours.push(norad::Contour::new(
+            vec![zero_point(), zero_point()],
+            None,
+            None,
+        ));
+        font.default_layer_mut().insert_glyph(glyph);
+
+        let parameters = SpacingParameters::default();
+        space_default_layer(&mut font, &parameters);
+
+        let bogus_spaced = font.get_glyph("bogus").unwrap();
+        assert_eq!(bogus_spaced.width, 1000.0);
+        assert_eq!(
+            bogus_spaced.contours[0].points,
+            vec![zero_point(), zero_point()]
+        );
     }
 
     fn check_expectations(
