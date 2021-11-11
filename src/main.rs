@@ -12,7 +12,6 @@ pub mod drawing;
 pub mod parameters;
 
 // TODO:
-// - Write deslanter for italic sidebearings
 // - Make spacing polygons BezPaths for free `area` fn?
 
 #[derive(Debug, StructOpt)]
