@@ -204,16 +204,18 @@ fn calculate_sidebearings(
         // mut ref to glyphs to modify them. Doing it in this loop is complicated by
         // misc. functions needing a normal ref to layer while we hold a mut ref...
         if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
+            // Discard bogus computation results (typically from bogus geometry) here
+            // rather than in `calculate_spacing` because we know which glyph is affected
+            // here.
             use std::num::FpCategory::{Infinite, Nan, Subnormal};
-            match (new_left.classify(), new_right.classify()) {
-                (Infinite | Nan | Subnormal, Infinite | Nan | Subnormal) => {
-                    warn!(
-                        "Glyph '{}': failed to compute spacing, skipping.",
-                        glyph_name
-                    );
-                    continue;
-                }
-                _ => (),
+            if matches!(new_left.classify(), Infinite | Nan | Subnormal)
+                || matches!(new_right.classify(), Infinite | Nan | Subnormal)
+            {
+                warn!(
+                    "Glyph '{}': failed to compute spacing, skipping.",
+                    glyph_name
+                );
+                continue;
             }
 
             let delta_left = new_left - bounds.min_x();
@@ -493,6 +495,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn space_bogus() {
+        // Glyphs with bogus geometry should be skipped.
+
+        let zero_point = || {
+            norad::ContourPoint::new(
+                0.0,
+                0.0,
+                norad::PointType::OffCurve,
+                false,
+                None,
+                None,
+                None,
+            )
+        };
+
+        let mut font = Font::new();
+        let mut glyph = Glyph::new_named("bogus");
+        glyph.width = 1000.0;
+        glyph.contours.push(norad::Contour::new(
+            vec![zero_point(), zero_point()],
+            None,
+            None,
+        ));
+        let glyph_clone = glyph.clone();
+        font.default_layer_mut().insert_glyph(glyph);
+
+        let parameters = SpacingParameters::default();
+        space_default_layer(&mut font, &parameters);
+
+        assert_eq!(font.get_glyph("bogus").unwrap().as_ref(), &glyph_clone);
+    }
+
+    // XXX: rewrite https://gist.github.com/madig/9553f66257c4a1abe793b0e82ada84d4
+    #[test]
     fn space_mutatorsans() {
         let font = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
         let parameters = SpacingParameters::default();
@@ -549,43 +585,6 @@ mod tests {
         let glyphs = prepare_glyphs(font.default_layer(), &parameters);
 
         check_expectations(&font, &glyphs, &expected);
-    }
-
-    #[test]
-    fn space_bogus() {
-        // Glyphs with bogus geometry should be skipped.
-
-        let zero_point = || {
-            norad::ContourPoint::new(
-                0.0,
-                0.0,
-                norad::PointType::OffCurve,
-                false,
-                None,
-                None,
-                None,
-            )
-        };
-
-        let mut font = Font::new();
-        let mut glyph = Glyph::new_named("bogus");
-        glyph.width = 1000.0;
-        glyph.contours.push(norad::Contour::new(
-            vec![zero_point(), zero_point()],
-            None,
-            None,
-        ));
-        font.default_layer_mut().insert_glyph(glyph);
-
-        let parameters = SpacingParameters::default();
-        space_default_layer(&mut font, &parameters);
-
-        let bogus_spaced = font.get_glyph("bogus").unwrap();
-        assert_eq!(bogus_spaced.width, 1000.0);
-        assert_eq!(
-            bogus_spaced.contours[0].points,
-            vec![zero_point(), zero_point()]
-        );
     }
 
     fn check_expectations(
