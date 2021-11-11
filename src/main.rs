@@ -191,19 +191,18 @@ fn calculate_sidebearings(
         let bounds_reference_lower = (bounds_reference.min_y() - overshoot).round();
         let bounds_reference_upper = (bounds_reference.max_y() + overshoot).round();
 
-        let (new_left, new_right) = calculate_spacing(
+        // Stash new metrics away. We have to do a second iteration so we can get a
+        // mut ref to glyphs to modify them. Doing it in this loop is complicated by
+        // misc. functions needing a normal ref to layer while we hold a mut ref...
+        // TODO: Still correct explanation when using `GlyphName`?
+        if let Some((new_left, new_right)) = calculate_spacing(
             paths,
             bounds,
             (bounds_reference_lower, bounds_reference_upper),
             font_metrics,
             parameters,
             factor,
-        );
-
-        // Stash new metrics away. We have to do a second iteration so we can get a
-        // mut ref to glyphs to modify them. Doing it in this loop is complicated by
-        // misc. functions needing a normal ref to layer while we hold a mut ref...
-        if let (Some(new_left), Some(new_right)) = (new_left, new_right) {
+        ) {
             // Discard bogus computation results (typically from bogus geometry) here
             // rather than in `calculate_spacing` because we know which glyph is affected
             // here.
@@ -273,9 +272,9 @@ fn calculate_spacing(
     font_metrics: &FontMetrics,
     parameters: &SpacingParameters,
     factor: f64,
-) -> (Option<f64>, Option<f64>) {
+) -> Option<(f64, f64)> {
     if paths.is_empty() {
-        return (None, None);
+        return None;
     }
 
     let (left, extreme_left_full, extreme_left, right, extreme_right_full, extreme_right) =
@@ -311,7 +310,7 @@ fn calculate_spacing(
         ))
     .ceil();
 
-    (Some(new_left), Some(new_right))
+    Some((new_left, new_right))
 }
 
 fn calculate_sidebearing_value(
