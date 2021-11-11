@@ -105,7 +105,12 @@ fn space_default_layer(font: &mut norad::Font, parameters: &SpacingParameters) {
                     .iter_mut()
                     .filter(|c| c.base == name)
                 {
-                    component.transform.x_offset -= delta_left;
+                    // Apply affine counter-translation instead of changing the x_offset
+                    // directly. Otherwise, a comma flipped horizontally and vertically
+                    // would move in the opposite direction of the delta.
+                    let transform: kurbo::Affine = component.transform.into();
+                    component.transform =
+                        (transform * kurbo::Affine::translate((-delta_left, 0.0))).into();
                 }
             }
         }
@@ -526,10 +531,23 @@ mod tests {
         assert_eq!(font.get_glyph("bogus").unwrap().as_ref(), &glyph_clone);
     }
 
-    // XXX: rewrite https://gist.github.com/madig/9553f66257c4a1abe793b0e82ada84d4
+    // Sanity check: empty glyphs should have a zero bounding box.
+    #[test]
+    fn empty_glyph_has_zero_bbox() {
+        let layer = norad::Layer::new("public.default".into(), None);
+        let mut glyph = norad::Glyph::new_named("space");
+        glyph.width = 250.0;
+
+        let bbox = drawing::path_for_glyph(&glyph, &layer)
+            .unwrap()
+            .bounding_box();
+
+        assert_eq!(bbox, Rect::ZERO);
+    }
+
     #[test]
     fn space_mutatorsans() {
-        let font = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
+        let mut font = norad::Font::load("testdata/mutatorSans/MutatorSansLightWide.ufo").unwrap();
         let parameters = SpacingParameters::default();
         let expected = [
             ("A", Some((23.0, 23.0))),
@@ -581,32 +599,27 @@ mod tests {
             ("semicolon", Some((88.0, 86.0))),
             ("space", None),
         ];
-        let glyphs = prepare_glyphs(font.default_layer(), &parameters);
 
-        check_expectations(&font, &glyphs, &expected);
+        check_expectations(&mut font, &parameters, &expected);
     }
 
     fn check_expectations(
-        font: &norad::Font,
-        glyphs: &HashMap<GlyphName, (BezPath, Rect, SpacingParameters)>,
+        font: &mut norad::Font,
+        parameters: &SpacingParameters,
         expected: &[(&str, Option<(f64, f64)>)],
     ) {
-        let font_metrics = FontMetrics::from_font(font);
-        let sidebearing_deltas = calculate_sidebearings(glyphs, &font_metrics);
+        space_default_layer(font, parameters);
 
         for (name, margins) in expected {
+            let glyph = font.get_glyph(*name).unwrap();
+            let (glyph_reference, factor) = config::config_for_glyph(name);
+            let bbox = drawing::path_for_glyph(glyph, font.default_layer())
+                .unwrap()
+                .bounding_box();
+
             match margins {
                 Some((left, right)) => {
-                    let glyph = font.get_glyph(*name).unwrap();
-                    let drawing = drawing::path_for_glyph(glyph, font.default_layer()).unwrap();
-                    let bbox = drawing.bounding_box();
-
-                    let (glyph_reference, factor) = config::config_for_glyph(name);
-                    let (delta_left, advance_width) = sidebearing_deltas[*name];
-                    let (new_left, new_right) = (
-                        bbox.min_x() + delta_left,
-                        advance_width - bbox.max_x() - delta_left,
-                    );
+                    let (new_left, new_right) = (bbox.min_x(), glyph.width - bbox.max_x());
 
                     assert!(
                         (left - new_left).abs() <= 1.0,
@@ -628,7 +641,7 @@ mod tests {
                         factor
                     );
                 }
-                None => assert!(!sidebearing_deltas.contains_key(*name)),
+                None => assert_eq!(bbox, Rect::ZERO),
             }
         }
     }
