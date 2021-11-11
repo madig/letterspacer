@@ -12,5 +12,5 @@ anyhow = "1.0.44"
 env_logger = "0.9"
 kurbo = "0.8"
 log = "0.4"
-norad = { version = "0.6", features = ["kurbo"] }
+norad = { version = "0.6", features = ["kurbo", "rayon"] }
 structopt = { version = "0.3", default-features = false }
