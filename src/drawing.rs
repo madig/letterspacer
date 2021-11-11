@@ -3,12 +3,12 @@
 use kurbo::{Affine, BezPath, PathEl, Point};
 use norad::{Component, Contour, ContourPoint, Glyph, Layer, PointType};
 
-pub fn path_for_glyph(glyph: &Glyph, glyphset: &Layer) -> Result<BezPath, ContourDrawingError> {
+pub fn path_for_glyph(glyph: &Glyph, glyph_set: &Layer) -> Result<BezPath, ContourDrawingError> {
     let mut path = BezPath::new();
     for contour in glyph
         .contours
         .iter()
-        .chain(decomposed_components(glyph, glyphset).iter())
+        .chain(decomposed_components(glyph, glyph_set).iter())
     {
         for element in contour_segments(contour)? {
             path.push(element);
@@ -20,7 +20,7 @@ pub fn path_for_glyph(glyph: &Glyph, glyphset: &Layer) -> Result<BezPath, Contou
 /// Returns a Vec of decomposed components of a composite. Ignores incoming identifiers and libs
 /// and dangling components; contours are in no particular order.
 // TODO: deal with cycles, extend ContourDrawingError.
-fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
+fn decomposed_components(glyph: &Glyph, glyph_set: &Layer) -> Vec<Contour> {
     let mut contours = Vec::new();
     let mut stack: Vec<(&Component, Affine)> = Vec::new();
 
@@ -28,7 +28,7 @@ fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
         stack.push((component, component.transform.into()));
 
         while let Some((component, transform)) = stack.pop() {
-            let new_glyph = match glyphset.get_glyph(&component.base) {
+            let new_glyph = match glyph_set.get_glyph(&component.base) {
                 Some(g) => g,
 
                 None => continue,
@@ -61,7 +61,7 @@ fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
     contours
 }
 
-fn contour_segments(contour: &Contour) -> Result<Vec<PathEl>, ContourDrawingError> {
+pub(crate) fn contour_segments(contour: &Contour) -> Result<Vec<PathEl>, ContourDrawingError> {
     let mut points: Vec<&ContourPoint> = contour.points.iter().collect();
     let mut segments = Vec::new();
 

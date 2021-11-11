@@ -16,6 +16,7 @@ pub fn config_for_glyph(name: &str) -> (&str, f64) {
     const SYMBOL: f64 = 1.5;
 
     match name {
+        ".notdef" => (name, 1.0),
         "A" => ("H", LETTER_UPPERCASE),
         "AE" => ("H", LETTER_UPPERCASE),
         "Aacute" => ("H", LETTER_UPPERCASE),
