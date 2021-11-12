@@ -78,7 +78,6 @@ fn compute_area(points: &[Point]) -> f64 {
         / 2.0
 }
 
-// TODO: Work with kurbo data types instead of Vec<Point>?
 fn spacing_polygons(
     paths: &BezPath,
     bounds: &Rect,

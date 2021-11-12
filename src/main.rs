@@ -13,7 +13,8 @@ pub mod drawing;
 pub mod parameters;
 
 // TODO:
-// - Make spacing polygons BezPaths for free `area` fn?
+// - Make spacing polygons BezPaths instead of Vec<Point> for free `area` fn?
+// - Make SpacingParameters also hold FontMetrics?
 
 #[derive(Debug, StructOpt)]
 #[structopt(
