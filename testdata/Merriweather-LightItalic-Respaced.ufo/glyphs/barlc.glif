@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="barlc" format="2">
+  <advance width="837"/>
+  <anchor x="415" y="555" name="_bar"/>
+  <anchor x="335" y="580" name="_tbar"/>
+  <outline>
+    <contour>
+      <point x="689" y="532" type="line"/>
+      <point x="702" y="626" type="line"/>
+      <point x="155" y="626" type="line"/>
+      <point x="141" y="532" type="line"/>
+    </contour>
+  </outline>
+</glyph>

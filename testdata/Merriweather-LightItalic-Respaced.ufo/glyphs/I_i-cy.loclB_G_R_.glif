@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="Ii-cy.loclBGR" format="2">
+  <advance width="1372"/>
+  <anchor x="1266" y="0" name="bottomright"/>
+  <anchor x="809" y="1486" name="top"/>
+  <outline>
+    <contour>
+      <point x="1256" y="1486" type="line"/>
+      <point x="539" y="619" type="line"/>
+      <point x="305" y="306" type="line"/>
+      <point x="451" y="1386" type="line"/>
+      <point x="601" y="1406" type="line"/>
+      <point x="609" y="1486" type="line"/>
+      <point x="177" y="1486" type="line"/>
+      <point x="169" y="1406" type="line"/>
+      <point x="291" y="1386" type="line"/>
+      <point x="104" y="0" type="line"/>
+      <point x="169" y="0" type="line"/>
+      <point x="893" y="908" type="line"/>
+      <point x="1122" y="1188" type="line"/>
+      <point x="975" y="94" type="line"/>
+      <point x="806" y="70" type="line"/>
+      <point x="800" y="0" type="line"/>
+      <point x="1269" y="0" type="line"/>
+      <point x="1275" y="70" type="line"/>
+      <point x="1131" y="94" type="line"/>
+      <point x="1316" y="1486" type="line"/>
+    </contour>
+  </outline>
+</glyph>

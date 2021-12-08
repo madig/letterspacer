@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="w.sc" format="2">
+  <advance width="1885"/>
+  <anchor x="873" y="0" name="bottom"/>
+  <anchor x="1055" y="1292" name="top"/>
+  <outline>
+    <contour>
+      <point x="1556" y="1220" type="line"/>
+      <point x="1704" y="1202" type="line"/>
+      <point x="1319" y="356" type="line"/>
+      <point x="1230" y="142" type="line"/>
+      <point x="1207" y="380" type="line"/>
+      <point x="1104" y="1204" type="line"/>
+      <point x="1268" y="1220" type="line"/>
+      <point x="1282" y="1292" type="line"/>
+      <point x="818" y="1292" type="line"/>
+      <point x="810" y="1220" type="line"/>
+      <point x="941" y="1204" type="line"/>
+      <point x="958" y="1079" type="line"/>
+      <point x="643" y="340" type="line"/>
+      <point x="568" y="142" type="line"/>
+      <point x="527" y="380" type="line"/>
+      <point x="397" y="1204" type="line"/>
+      <point x="566" y="1220" type="line"/>
+      <point x="570" y="1292" type="line"/>
+      <point x="113" y="1292" type="line"/>
+      <point x="107" y="1220" type="line"/>
+      <point x="242" y="1202" type="line"/>
+      <point x="450" y="-8" type="line"/>
+      <point x="607" y="-8" type="line"/>
+      <point x="986" y="872" type="line"/>
+      <point x="1106" y="-8" type="line"/>
+      <point x="1265" y="-8" type="line"/>
+      <point x="1831" y="1202" type="line"/>
+      <point x="1964" y="1220" type="line"/>
+      <point x="1974" y="1292" type="line"/>
+      <point x="1562" y="1292" type="line"/>
+    </contour>
+  </outline>
+</glyph>

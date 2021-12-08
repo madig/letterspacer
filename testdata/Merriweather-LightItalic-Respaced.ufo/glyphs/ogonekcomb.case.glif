@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="ogonekcomb.case" format="2">
+  <outline>
+    <component base="ogonek"/>
+  </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.originalWidth</key>
+      <integer>499</integer>
+    </dict>
+  </lib>
+</glyph>

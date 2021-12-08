@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="emptyset.case" format="2">
+  <advance width="1380"/>
+  <outline>
+    <component base="emptyset" xOffset="29" yOffset="216"/>
+  </outline>
+</glyph>

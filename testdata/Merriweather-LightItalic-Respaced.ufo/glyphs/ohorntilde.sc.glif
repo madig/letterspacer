@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="ohorntilde.sc" format="2">
+  <advance width="1295"/>
+  <outline>
+    <component base="tildecomb" xOffset="400" yOffset="182"/>
+    <component base="o.sc"/>
+    <component base="horncomb" xOffset="1050" yOffset="1234"/>
+  </outline>
+</glyph>

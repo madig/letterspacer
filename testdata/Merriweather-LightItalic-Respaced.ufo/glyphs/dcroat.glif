@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="dcroat" format="2">
+  <advance width="1091"/>
+  <unicode hex="0111"/>
+  <outline>
+    <contour>
+      <point x="556" y="1270" type="line"/>
+      <point x="1120" y="1270" type="line"/>
+      <point x="1132" y="1370" type="line"/>
+      <point x="568" y="1370" type="line"/>
+    </contour>
+    <component base="d"/>
+  </outline>
+</glyph>

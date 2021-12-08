@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="emtail-cy" format="2">
+  <advance width="1606"/>
+  <unicode hex="04CE"/>
+  <anchor x="1493" y="0" name="bottomright"/>
+  <anchor x="961" y="1110" name="top"/>
+  <outline>
+    <contour>
+      <point x="1530" y="102" type="curve"/>
+      <point x="1341" y="38" type="line"/>
+      <point x="1320" y="-153"/>
+      <point x="1216" y="-294"/>
+      <point x="1066" y="-362" type="curve"/>
+      <point x="1085" y="-420" type="line"/>
+      <point x="1295" y="-379"/>
+      <point x="1530" y="-196"/>
+    </contour>
+    <component base="em-cy"/>
+  </outline>
+</glyph>

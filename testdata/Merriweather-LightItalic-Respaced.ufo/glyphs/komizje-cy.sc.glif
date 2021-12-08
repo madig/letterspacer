@@ -1,0 +1,55 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="komizje-cy.sc" format="2">
+  <advance width="1295"/>
+  <outline>
+    <contour>
+      <point x="1051" y="425" type="line" smooth="yes"/>
+      <point x="1025" y="229"/>
+      <point x="992" y="74"/>
+      <point x="841" y="74" type="curve" smooth="yes"/>
+      <point x="770" y="74"/>
+      <point x="752" y="96"/>
+      <point x="641" y="293" type="curve" smooth="yes"/>
+      <point x="595" y="375"/>
+      <point x="494" y="558"/>
+      <point x="436" y="588" type="curve"/>
+      <point x="638" y="631"/>
+      <point x="775" y="789"/>
+      <point x="775" y="1014" type="curve" smooth="yes"/>
+      <point x="775" y="1211"/>
+      <point x="626" y="1306"/>
+      <point x="356" y="1306" type="curve" smooth="yes"/>
+      <point x="255" y="1306"/>
+      <point x="184" y="1292"/>
+      <point x="149" y="1293" type="curve"/>
+      <point x="135" y="1206" type="line"/>
+      <point x="155" y="1212"/>
+      <point x="254" y="1222"/>
+      <point x="325" y="1222" type="curve" smooth="yes"/>
+      <point x="529" y="1222"/>
+      <point x="615" y="1145"/>
+      <point x="615" y="1004" type="curve" smooth="yes"/>
+      <point x="615" y="695"/>
+      <point x="376" y="655"/>
+      <point x="293" y="655" type="curve" smooth="yes"/>
+      <point x="206" y="655"/>
+      <point x="119" y="654"/>
+      <point x="62" y="657" type="curve"/>
+      <point x="49" y="570" type="line"/>
+      <point x="179" y="570"/>
+      <point x="213" y="569"/>
+      <point x="269" y="569" type="curve" smooth="yes"/>
+      <point x="349" y="569"/>
+      <point x="442" y="368"/>
+      <point x="521" y="201" type="curve" smooth="yes"/>
+      <point x="610" y="13"/>
+      <point x="665" y="-18"/>
+      <point x="807" y="-18" type="curve" smooth="yes"/>
+      <point x="1063" y="-18"/>
+      <point x="1168" y="166"/>
+      <point x="1202" y="430" type="curve" smooth="yes"/>
+      <point x="1234" y="678" type="line"/>
+      <point x="1085" y="678" type="line"/>
+    </contour>
+  </outline>
+</glyph>

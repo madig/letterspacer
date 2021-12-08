@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="lefttooth_part." format="2">
+  <advance width="427"/>
+  <anchor x="78" y="0" name="_bottomleft"/>
+  <outline>
+    <contour>
+      <point x="103" y="-360" type="line"/>
+      <point x="123" y="-303"/>
+      <point x="209" y="-53"/>
+      <point x="227" y="0" type="curve"/>
+      <point x="305" y="106" type="line"/>
+      <point x="96" y="106" type="line"/>
+      <point x="70" y="-31"/>
+      <point x="33" y="-215"/>
+      <point x="7" y="-360" type="curve"/>
+    </contour>
+  </outline>
+</glyph>

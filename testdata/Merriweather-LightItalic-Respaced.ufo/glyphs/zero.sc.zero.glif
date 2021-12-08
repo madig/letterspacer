@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="zero.sc.zero" format="2">
+  <advance width="1087"/>
+  <outline>
+    <contour>
+      <point x="282" y="129" type="line"/>
+      <point x="882" y="1105" type="line"/>
+      <point x="822" y="1156" type="line"/>
+      <point x="232" y="194" type="line"/>
+    </contour>
+    <component base="zero.sc"/>
+  </outline>
+</glyph>

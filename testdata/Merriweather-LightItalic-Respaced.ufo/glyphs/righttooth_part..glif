@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="righttooth_part." format="2">
+  <advance width="441"/>
+  <anchor x="227" y="0" name="_bottomright"/>
+  <outline>
+    <contour>
+      <point x="142" y="-360" type="line"/>
+      <point x="166" y="-289"/>
+      <point x="223" y="-96"/>
+      <point x="249" y="106" type="curve"/>
+      <point x="-44" y="106" type="line"/>
+      <point x="84" y="0" type="line"/>
+      <point x="91" y="-69"/>
+      <point x="60" y="-264"/>
+      <point x="44" y="-360" type="curve"/>
+    </contour>
+  </outline>
+</glyph>

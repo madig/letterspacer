@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="longbar_part." format="2">
+  <advance width="1220"/>
+  <outline>
+    <contour>
+      <point x="1099" y="702" type="line"/>
+      <point x="1105" y="806" type="line"/>
+      <point x="175" y="806" type="line"/>
+      <point x="169" y="702" type="line"/>
+    </contour>
+  </outline>
+</glyph>

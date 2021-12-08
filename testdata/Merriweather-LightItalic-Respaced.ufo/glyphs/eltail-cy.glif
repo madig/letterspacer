@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="eltail-cy" format="2">
+  <advance width="1113"/>
+  <unicode hex="04C6"/>
+  <outline>
+    <contour>
+      <point x="1021" y="94" type="curve"/>
+      <point x="835" y="38" type="line"/>
+      <point x="814" y="-153"/>
+      <point x="710" y="-294"/>
+      <point x="560" y="-362" type="curve"/>
+      <point x="579" y="-420" type="line"/>
+      <point x="789" y="-379"/>
+      <point x="1021" y="-204"/>
+    </contour>
+    <component base="el-cy"/>
+  </outline>
+</glyph>

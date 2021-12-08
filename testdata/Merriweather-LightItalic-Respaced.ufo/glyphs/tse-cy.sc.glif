@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="tse-cy.sc" format="2">
+  <advance width="1302"/>
+  <outline>
+    <contour>
+      <point x="1127" y="0" type="line"/>
+      <point x="1057" y="92" type="line"/>
+      <point x="1197" y="1202" type="line"/>
+      <point x="1333" y="1220" type="line"/>
+      <point x="1341" y="1292" type="line"/>
+      <point x="913" y="1292" type="line"/>
+      <point x="907" y="1220" type="line"/>
+      <point x="1043" y="1202" type="line"/>
+      <point x="909" y="88" type="line"/>
+      <point x="299" y="88" type="line"/>
+      <point x="439" y="1200" type="line"/>
+      <point x="603" y="1220" type="line"/>
+      <point x="609" y="1292" type="line"/>
+      <point x="153" y="1292" type="line"/>
+      <point x="147" y="1220" type="line"/>
+      <point x="277" y="1200" type="line"/>
+      <point x="141" y="86" type="line"/>
+      <point x="-41" y="64" type="line"/>
+      <point x="-47" y="0" type="line"/>
+    </contour>
+    <component base="righttooth_part." xOffset="926"/>
+  </outline>
+</glyph>

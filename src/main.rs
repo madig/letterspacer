@@ -223,13 +223,49 @@ fn calculate_sidebearings(
                 continue;
             }
 
-            let delta_left = new_left - bounds.min_x();
-            let advance_width = bounds.max_x() + delta_left + new_right;
+            let (delta_left, advance_width) = if font_metrics.angle == 0.0 {
+                let delta_left = new_left - bounds.min_x();
+                (delta_left, bounds.max_x() + delta_left + new_right)
+            } else {
+                deslant_sidebearings(
+                    &paths,
+                    new_left,
+                    new_right,
+                    font_metrics.angle,
+                    font_metrics.xheight,
+                )
+            };
             new_side_bearings.insert(glyph_name.clone(), (delta_left, advance_width));
         }
     }
 
     new_side_bearings
+}
+
+fn deslant_sidebearings(
+    paths: &BezPath,
+    left: f64,
+    right: f64,
+    angle: f64,
+    xheight: f64,
+) -> (f64, f64) {
+    // let bbox_slanted = paths.bounding_box();
+    let mut paths2 = paths.clone();
+    paths2.apply_affine(slant_paths(-angle, (left, xheight / 2.0)));
+    let bbox_deslanted = paths2.bounding_box();
+
+    let left_delta = left - bbox_deslanted.min_x();
+    let new_advance_width = bbox_deslanted.max_x() + left_delta + right;
+
+    (left_delta.round(), new_advance_width.round())
+}
+
+fn slant_paths(angle: f64, offset: (f64, f64)) -> kurbo::Affine {
+    let (dx, dy) = offset;
+    let t1 = kurbo::Affine::translate((dx, dy));
+    let t2 = kurbo::Affine::new([1.0, 0.0, angle.to_radians().tan(), 1.0, 0.0, 0.0]);
+    let t3 = kurbo::Affine::translate((-dx, -dy));
+    t1 * t2 * t3
 }
 
 struct FontMetrics {
@@ -517,6 +553,57 @@ mod tests {
                     );
                 }
                 None => assert_eq!(bbox, Rect::ZERO),
+            }
+        }
+    }
+
+    #[test]
+    fn space_merriweather() {
+        let mut font = norad::Font::load("testdata/Merriweather-LightItalic.ufo").unwrap();
+        let parameters = SpacingParameters::default();
+        space_default_layer(&mut font, &parameters);
+
+        let font_cmp = norad::Font::load("testdata/Merriweather-LightItalic-Respaced.ufo").unwrap();
+        for glyph in font.default_layer().iter() {
+            dbg!(&glyph.name);
+
+            let glyph_cmp = font_cmp.get_glyph(&glyph.name).unwrap();
+
+            let bbox = drawing::path_for_glyph(glyph, font.default_layer())
+                .unwrap()
+                .bounding_box();
+            let bbox_cmp = drawing::path_for_glyph(glyph_cmp, font_cmp.default_layer())
+                .unwrap()
+                .bounding_box();
+
+            // if &*glyph.name == "DZcaron" {
+            //     // TODO: x1 is += 43???
+            //     assert_eq!(bbox_cmp, Rect { x0: -25.0, y0: -16.0, x1: 2692.0, y1: 1988.0 })
+            // }
+
+            if bbox == Rect::ZERO {
+                assert_eq!(bbox_cmp, Rect::ZERO)
+            } else {
+                let (left, right) = (bbox.min_x(), glyph.width - bbox.max_x());
+                let (new_left, new_right) = (bbox_cmp.min_x(), glyph_cmp.width - bbox_cmp.max_x());
+
+                assert!(
+                    (left - new_left).abs() <= 1.0,
+                    "Glyph {}: expected left {} but got {}",
+                    glyph.name,
+                    left,
+                    new_left
+                );
+
+                // Glyph E: expected right 76 but got 78
+                // Glyph acutecomb: expected left 146 but got 113
+                assert!(
+                    (right - new_right).abs() <= 2.0,
+                    "Glyph {}: expected right {} but got {}",
+                    glyph.name,
+                    right,
+                    new_right
+                );
             }
         }
     }

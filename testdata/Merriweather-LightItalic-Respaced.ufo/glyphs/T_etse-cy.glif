@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="Tetse-cy" format="2">
+  <advance width="1743"/>
+  <unicode hex="04B4"/>
+  <anchor x="811" y="-166" name="btm"/>
+  <anchor x="817" y="1660" name="top"/>
+  <outline>
+    <contour>
+      <point x="1536" y="-359" type="line"/>
+      <point x="1557" y="-289"/>
+      <point x="1612" y="-98"/>
+      <point x="1651" y="104" type="curve"/>
+      <point x="1471" y="104" type="line"/>
+      <point x="1641" y="1384" type="line"/>
+      <point x="1778" y="1406" type="line"/>
+      <point x="1787" y="1486" type="line"/>
+      <point x="1355" y="1486" type="line"/>
+      <point x="1347" y="1406" type="line"/>
+      <point x="1485" y="1384" type="line"/>
+      <point x="1315" y="104" type="line"/>
+      <point x="571" y="104" type="line"/>
+      <point x="731" y="1386" type="line"/>
+      <point x="987" y="1384" type="line"/>
+      <point x="987" y="1032" type="line"/>
+      <point x="1085" y="1032" type="line"/>
+      <point x="1127" y="1486" type="line"/>
+      <point x="205" y="1486" type="line"/>
+      <point x="121" y="1032" type="line"/>
+      <point x="223" y="1032" type="line"/>
+      <point x="321" y="1384" type="line"/>
+      <point x="583" y="1386" type="line"/>
+      <point x="421" y="94" type="line"/>
+      <point x="277" y="70" type="line"/>
+      <point x="269" y="0" type="line"/>
+      <point x="1483" y="0" type="line"/>
+      <point x="1468" y="-121"/>
+      <point x="1451" y="-240"/>
+      <point x="1435" y="-360" type="curve"/>
+    </contour>
+  </outline>
+</glyph>

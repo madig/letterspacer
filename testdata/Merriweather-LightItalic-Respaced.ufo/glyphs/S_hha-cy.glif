@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="Shha-cy" format="2">
+  <advance width="1255"/>
+  <unicode hex="04BA"/>
+  <anchor x="557" y="0" name="bottom"/>
+  <anchor x="1157" y="0" name="bottomright"/>
+  <anchor x="523" y="-166" name="btm"/>
+  <anchor x="412" y="1660" name="top"/>
+  <outline>
+    <contour>
+      <point x="431" y="0" type="line"/>
+      <point x="439" y="80" type="line"/>
+      <point x="291" y="100" type="line"/>
+      <point x="373" y="716" type="line"/>
+      <point x="445" y="762"/>
+      <point x="579" y="790"/>
+      <point x="677" y="790" type="curve" smooth="yes"/>
+      <point x="863" y="790"/>
+      <point x="920" y="730"/>
+      <point x="920" y="560" type="curve" smooth="yes"/>
+      <point x="920" y="505"/>
+      <point x="914" y="439"/>
+      <point x="905" y="360" type="curve" smooth="yes"/>
+      <point x="871" y="102" type="line"/>
+      <point x="725" y="80" type="line"/>
+      <point x="717" y="0" type="line"/>
+      <point x="1155" y="0" type="line"/>
+      <point x="1163" y="82" type="line"/>
+      <point x="1031" y="100" type="line"/>
+      <point x="1079" y="474" type="line" smooth="yes"/>
+      <point x="1084" y="517"/>
+      <point x="1087" y="556"/>
+      <point x="1087" y="591" type="curve" smooth="yes"/>
+      <point x="1087" y="848"/>
+      <point x="949" y="902"/>
+      <point x="745" y="902" type="curve" smooth="yes"/>
+      <point x="635" y="902"/>
+      <point x="493" y="876"/>
+      <point x="385" y="810" type="curve"/>
+      <point x="467" y="1392" type="line"/>
+      <point x="653" y="1416" type="line"/>
+      <point x="659" y="1486" type="line"/>
+      <point x="165" y="1486" type="line"/>
+      <point x="159" y="1416" type="line"/>
+      <point x="309" y="1392" type="line"/>
+      <point x="133" y="100" type="line"/>
+      <point x="-1" y="80" type="line"/>
+      <point x="-13" y="0" type="line"/>
+    </contour>
+  </outline>
+</glyph>
